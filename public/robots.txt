@@ -1,0 +1,6 @@
+# Robots.txt for Emerald Detailing
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://emeralddetailers.com/sitemap.xml
