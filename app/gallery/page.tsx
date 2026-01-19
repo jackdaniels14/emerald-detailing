@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import GalleryGrid from '@/components/GalleryGrid';
 
 export const metadata = {
@@ -7,62 +8,70 @@ export const metadata = {
 };
 
 export default function GalleryPage() {
-  // Placeholder gallery items - replace with actual images
   const galleryItems = [
     {
       id: 1,
-      title: 'Honda Accord Full Detail',
-      category: 'sedan',
-      beforePlaceholder: 'Before Photo',
-      afterPlaceholder: 'After Photo',
+      title: 'Luxury Sedan Detail',
+      category: 'exterior',
+      image: '/images/infiniti-g37.jpg',
     },
     {
       id: 2,
-      title: 'Toyota RAV4 Interior',
-      category: 'suv',
-      beforePlaceholder: 'Before Photo',
-      afterPlaceholder: 'After Photo',
+      title: 'Premium Headlight Restoration',
+      category: 'exterior',
+      image: '/images/bmw-headlight.jpg',
     },
     {
       id: 3,
-      title: 'Ford F-150 Exterior',
-      category: 'truck',
-      beforePlaceholder: 'Before Photo',
-      afterPlaceholder: 'After Photo',
+      title: 'Classic Car Polish',
+      category: 'exterior',
+      image: '/images/classic-car-hood.jpg',
     },
     {
       id: 4,
-      title: 'BMW 3 Series Interior',
-      category: 'sedan',
-      beforePlaceholder: 'Before Photo',
-      afterPlaceholder: 'After Photo',
+      title: 'Sports Car Detail',
+      category: 'exterior',
+      image: '/images/red-car-headlight.jpg',
     },
     {
       id: 5,
-      title: 'Jeep Wrangler Full Detail',
-      category: 'suv',
-      beforePlaceholder: 'Before Photo',
-      afterPlaceholder: 'After Photo',
+      title: 'Exterior Foam Wash',
+      category: 'wash',
+      image: '/images/car-wash-soap.jpg',
     },
     {
       id: 6,
-      title: 'Chevy Silverado Interior',
-      category: 'truck',
-      beforePlaceholder: 'Before Photo',
-      afterPlaceholder: 'After Photo',
+      title: 'Console Deep Clean',
+      category: 'interior',
+      image: '/images/interior-detailing-console.jpg',
+    },
+    {
+      id: 7,
+      title: 'Door Panel Detailing',
+      category: 'interior',
+      image: '/images/interior-detailing-door.jpg',
     },
   ];
 
   return (
     <>
       {/* Hero Section */}
-      <section className="bg-gray-900 text-white py-16 md:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="relative bg-gray-900 text-white py-16 md:py-24">
+        <div className="absolute inset-0">
+          <Image
+            src="/images/red-car-headlight.jpg"
+            alt="Detailed car showcase"
+            fill
+            className="object-cover"
+          />
+          <div className="absolute inset-0 bg-gray-900/80"></div>
+        </div>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-6">
             Our <span className="text-emerald-400">Work</span>
           </h1>
           <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-            See the Emerald Detailing difference. Browse our before and after gallery
+            See the Emerald Detailing difference. Browse our gallery
             to see the quality of our work.
           </p>
         </div>
@@ -72,20 +81,6 @@ export default function GalleryPage() {
       <section className="py-16 md:py-24 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <GalleryGrid items={galleryItems} />
-
-          {/* Note about placeholder images */}
-          <div className="mt-12 text-center">
-            <div className="inline-block bg-emerald-50 border border-emerald-200 rounded-lg p-6 max-w-xl">
-              <svg className="w-8 h-8 text-emerald-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <p className="text-gray-700">
-                <strong>Gallery Coming Soon!</strong><br />
-                We&apos;re building our portfolio. Check back soon for before/after photos
-                of our detailing work.
-              </p>
-            </div>
-          </div>
         </div>
       </section>
 

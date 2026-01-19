@@ -1,13 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 
 interface GalleryItem {
   id: number;
   title: string;
   category: string;
-  beforePlaceholder: string;
-  afterPlaceholder: string;
+  image: string;
 }
 
 interface GalleryGridProps {
@@ -45,26 +45,14 @@ export default function GalleryGrid({ items }: GalleryGridProps) {
       {/* Gallery Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredItems.map((item) => (
-          <div key={item.id} className="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="grid grid-cols-2">
-              {/* Before */}
-              <div className="relative">
-                <div className="aspect-square bg-gray-300 flex items-center justify-center">
-                  <span className="text-gray-500 text-sm">{item.beforePlaceholder}</span>
-                </div>
-                <span className="absolute bottom-2 left-2 bg-gray-900 text-white text-xs px-2 py-1 rounded">
-                  Before
-                </span>
-              </div>
-              {/* After */}
-              <div className="relative">
-                <div className="aspect-square bg-emerald-100 flex items-center justify-center">
-                  <span className="text-emerald-600 text-sm">{item.afterPlaceholder}</span>
-                </div>
-                <span className="absolute bottom-2 right-2 bg-emerald-500 text-white text-xs px-2 py-1 rounded">
-                  After
-                </span>
-              </div>
+          <div key={item.id} className="bg-white rounded-xl shadow-lg overflow-hidden group">
+            <div className="relative aspect-[4/3] overflow-hidden">
+              <Image
+                src={item.image}
+                alt={item.title}
+                fill
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
+              />
             </div>
             <div className="p-4">
               <h3 className="font-semibold text-gray-900">{item.title}</h3>

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import ServiceCard from '@/components/ServiceCard';
 
 export const metadata = {
@@ -73,8 +74,17 @@ export default function ServicesPage() {
   return (
     <>
       {/* Hero Section */}
-      <section className="bg-gray-900 text-white py-16 md:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="relative bg-gray-900 text-white py-16 md:py-24">
+        <div className="absolute inset-0">
+          <Image
+            src="/images/car-wash-soap.jpg"
+            alt="Car detailing in progress"
+            fill
+            className="object-cover"
+          />
+          <div className="absolute inset-0 bg-gray-900/80"></div>
+        </div>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-6">
             Our <span className="text-emerald-400">Services</span>
           </h1>
