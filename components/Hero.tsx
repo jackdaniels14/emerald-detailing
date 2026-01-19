@@ -1,18 +1,13 @@
 import Link from 'next/link';
-import Image from 'next/image';
 
 export default function Hero() {
   return (
     <section className="relative bg-gray-900 text-white">
       {/* Background Image */}
-      <div className="absolute inset-0">
-        <Image
-          src="/images/infiniti-g37.jpg"
-          alt="Premium detailed car"
-          fill
-          className="object-cover"
-          priority
-        />
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{ backgroundImage: 'url(/emerald-detailing/images/infiniti-g37.jpg)' }}
+      >
         <div className="absolute inset-0 bg-gradient-to-br from-gray-900/90 via-gray-800/80 to-emerald-900/70"></div>
       </div>
 
