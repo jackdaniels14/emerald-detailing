@@ -33,8 +33,14 @@ export default function PricingPage() {
   return (
     <>
       {/* Hero Section */}
-      <section className="bg-gray-900 text-white py-16 md:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="relative bg-gray-900 text-white py-16 md:py-24">
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: 'url(/emerald-detailing/images/bmw-headlight.jpg)' }}
+        >
+          <div className="absolute inset-0 bg-gray-900/85"></div>
+        </div>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-6">
             Simple, Transparent <span className="text-emerald-400">Pricing</span>
           </h1>
