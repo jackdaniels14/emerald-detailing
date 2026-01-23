@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import ServiceCard from '@/components/ServiceCard';
+import PublicLayout from '@/components/PublicLayout';
 
 export const metadata = {
   title: 'Our Services | Emerald Detailing',
@@ -71,7 +72,7 @@ export default function ServicesPage() {
   ];
 
   return (
-    <>
+    <PublicLayout>
       {/* Hero Section */}
       <section className="relative bg-gray-900 text-white py-16 md:py-24">
         <div
@@ -209,6 +210,6 @@ export default function ServicesPage() {
           </div>
         </div>
       </section>
-    </>
+    </PublicLayout>
   );
 }

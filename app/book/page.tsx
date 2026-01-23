@@ -1,4 +1,5 @@
 import BookingForm from '@/components/BookingForm';
+import PublicLayout from '@/components/PublicLayout';
 
 export const metadata = {
   title: 'Book Now | Emerald Detailing',
@@ -7,7 +8,7 @@ export const metadata = {
 
 export default function BookPage() {
   return (
-    <>
+    <PublicLayout>
       {/* Hero Section */}
       <section className="relative bg-gray-900 text-white py-16 md:py-24">
         <div
@@ -103,6 +104,6 @@ export default function BookPage() {
           </p>
         </div>
       </section>
-    </>
+    </PublicLayout>
   );
 }

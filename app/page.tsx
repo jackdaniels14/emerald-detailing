@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Hero from '@/components/Hero';
+import PublicLayout from '@/components/PublicLayout';
 
 export default function Home() {
   const features = [
@@ -49,7 +50,7 @@ export default function Home() {
   ];
 
   return (
-    <>
+    <PublicLayout>
       <Hero />
 
       {/* Features Section */}
@@ -138,6 +139,6 @@ export default function Home() {
           </Link>
         </div>
       </section>
-    </>
+    </PublicLayout>
   );
 }

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import PricingCard from '@/components/PricingCard';
+import PublicLayout from '@/components/PublicLayout';
 
 export const metadata = {
   title: 'Pricing | Emerald Detailing',
@@ -31,7 +32,7 @@ export default function PricingPage() {
   };
 
   return (
-    <>
+    <PublicLayout>
       {/* Hero Section */}
       <section className="relative bg-gray-900 text-white py-16 md:py-24">
         <div
@@ -396,6 +397,6 @@ export default function PricingPage() {
           </Link>
         </div>
       </section>
-    </>
+    </PublicLayout>
   );
 }

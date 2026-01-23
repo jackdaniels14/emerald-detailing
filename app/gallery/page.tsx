@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import PublicLayout from '@/components/PublicLayout';
 
 export const metadata = {
   title: 'Gallery | Emerald Detailing',
@@ -7,7 +8,7 @@ export const metadata = {
 
 export default function GalleryPage() {
   return (
-    <>
+    <PublicLayout>
       {/* Hero Section */}
       <section className="relative bg-gray-900 text-white py-16 md:py-24">
         <div
@@ -62,6 +63,6 @@ export default function GalleryPage() {
           </Link>
         </div>
       </section>
-    </>
+    </PublicLayout>
   );
 }

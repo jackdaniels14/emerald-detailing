@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import ContactForm from '@/components/ContactForm';
+import PublicLayout from '@/components/PublicLayout';
 
 export const metadata: Metadata = {
   title: 'Contact Us | Emerald Detailing',
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function ContactPage() {
-  return <ContactForm />;
+  return (
+    <PublicLayout>
+      <ContactForm />
+    </PublicLayout>
+  );
 }
