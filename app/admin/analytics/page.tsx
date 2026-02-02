@@ -1,35 +1,179 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { Booking, Client } from '@/lib/types';
 
 export default function AnalyticsPage() {
   const [dateRange, setDateRange] = useState('30d');
+  const [loading, setLoading] = useState(true);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
 
-  // Demo data
-  const revenueData = {
-    total: 12450,
-    change: 15.3,
-    byService: [
-      { name: 'Full Detail', revenue: 5200, count: 12 },
-      { name: 'Interior Only', revenue: 3800, count: 25 },
-      { name: 'Exterior Only', revenue: 2450, count: 18 },
-      { name: 'Add-ons', revenue: 1000, count: 15 },
-    ],
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch all bookings
+        const bookingsRef = collection(db, 'bookings');
+        const bookingsSnap = await getDocs(bookingsRef);
+        const bookingData = bookingsSnap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Booking[];
+        setBookings(bookingData);
+
+        // Fetch all clients
+        const clientsRef = collection(db, 'clients');
+        const clientsSnap = await getDocs(clientsRef);
+        const clientData = clientsSnap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Client[];
+        setClients(clientData);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Get date range start
+  const getStartDate = () => {
+    const now = new Date();
+    switch (dateRange) {
+      case '7d':
+        return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      case '30d':
+        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      case '90d':
+        return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      case '1y':
+        return new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+      default:
+        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    }
   };
 
-  const bookingsData = {
-    total: 67,
-    completed: 58,
-    cancelled: 4,
-    pending: 5,
+  const getBookingDate = (booking: Booking) => {
+    const scheduledDate = booking.scheduledDate as any;
+    return scheduledDate?.seconds
+      ? new Date(scheduledDate.seconds * 1000)
+      : new Date(scheduledDate);
   };
 
-  const clientData = {
-    total: 142,
-    new: 18,
-    returning: 49,
-    subscriptions: 23,
+  const getClientDate = (client: Client) => {
+    const createdAt = client.createdAt as any;
+    return createdAt?.seconds
+      ? new Date(createdAt.seconds * 1000)
+      : new Date(createdAt);
   };
+
+  // Filter bookings by date range
+  const startDate = getStartDate();
+  const filteredBookings = bookings.filter(booking => {
+    const bookingDate = getBookingDate(booking);
+    return bookingDate >= startDate;
+  });
+
+  // Calculate metrics
+  const totalRevenue = filteredBookings
+    .filter(b => b.status === 'completed')
+    .reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+
+  const completedBookings = filteredBookings.filter(b => b.status === 'completed').length;
+  const pendingBookings = filteredBookings.filter(b => b.status === 'pending' || b.status === 'confirmed').length;
+  const cancelledBookings = filteredBookings.filter(b => b.status === 'cancelled').length;
+  const inProgressBookings = filteredBookings.filter(b => b.status === 'in_progress').length;
+
+  // New clients in date range
+  const newClients = clients.filter(client => {
+    const clientDate = getClientDate(client);
+    return clientDate >= startDate;
+  }).length;
+
+  // Active subscriptions
+  const activeSubscriptions = clients.filter(
+    c => c.subscriptionStatus && c.subscriptionStatus !== 'none'
+  ).length;
+
+  // Revenue by service type
+  const revenueByService = filteredBookings
+    .filter(b => b.status === 'completed')
+    .reduce((acc, booking) => {
+      const key = `${booking.serviceType} ${booking.serviceTier}`;
+      if (!acc[key]) {
+        acc[key] = { revenue: 0, count: 0 };
+      }
+      acc[key].revenue += booking.totalPrice || 0;
+      acc[key].count += 1;
+      return acc;
+    }, {} as Record<string, { revenue: number; count: number }>);
+
+  const revenueByServiceArray = Object.entries(revenueByService)
+    .map(([name, data]) => ({
+      name: name.charAt(0).toUpperCase() + name.slice(1),
+      revenue: data.revenue,
+      count: data.count,
+    }))
+    .sort((a, b) => b.revenue - a.revenue);
+
+  // Top clients by spending
+  const clientSpending = filteredBookings
+    .filter(b => b.status === 'completed')
+    .reduce((acc, booking) => {
+      if (!acc[booking.clientId]) {
+        acc[booking.clientId] = { bookings: 0, spent: 0, lastDate: null as Date | null };
+      }
+      acc[booking.clientId].bookings += 1;
+      acc[booking.clientId].spent += booking.totalPrice || 0;
+      const bookingDate = getBookingDate(booking);
+      if (!acc[booking.clientId].lastDate || bookingDate > acc[booking.clientId].lastDate!) {
+        acc[booking.clientId].lastDate = bookingDate;
+      }
+      return acc;
+    }, {} as Record<string, { bookings: number; spent: number; lastDate: Date | null }>);
+
+  const topClients = Object.entries(clientSpending)
+    .map(([clientId, data]) => {
+      const client = clients.find(c => c.id === clientId);
+      return {
+        name: client ? `${client.firstName} ${client.lastName}` : 'Unknown',
+        bookings: data.bookings,
+        spent: data.spent,
+        lastDate: data.lastDate,
+      };
+    })
+    .sort((a, b) => b.spent - a.spent)
+    .slice(0, 5);
+
+  const formatLastService = (date: Date | null) => {
+    if (!date) return 'N/A';
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Yesterday';
+    if (days < 7) return `${days} days ago`;
+    if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
+    return `${Math.floor(days / 30)} months ago`;
+  };
+
+  const totalBookingsInRange = filteredBookings.length;
+  const completionRate = totalBookingsInRange > 0
+    ? Math.round((completedBookings / totalBookingsInRange) * 100)
+    : 0;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -62,7 +206,7 @@ export default function AnalyticsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Total Revenue</p>
-              <p className="text-2xl font-bold text-gray-900">${revenueData.total.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">${totalRevenue.toLocaleString()}</p>
             </div>
             <div className="p-3 bg-emerald-100 rounded-lg">
               <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -71,8 +215,7 @@ export default function AnalyticsPage() {
             </div>
           </div>
           <div className="mt-2">
-            <span className="text-green-600 text-sm font-medium">+{revenueData.change}%</span>
-            <span className="text-gray-500 text-sm ml-1">vs last period</span>
+            <span className="text-gray-500 text-sm">{completedBookings} completed jobs</span>
           </div>
         </div>
 
@@ -80,7 +223,7 @@ export default function AnalyticsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Total Bookings</p>
-              <p className="text-2xl font-bold text-gray-900">{bookingsData.total}</p>
+              <p className="text-2xl font-bold text-gray-900">{totalBookingsInRange}</p>
             </div>
             <div className="p-3 bg-blue-100 rounded-lg">
               <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -89,7 +232,8 @@ export default function AnalyticsPage() {
             </div>
           </div>
           <div className="mt-2">
-            <span className="text-green-600 text-sm font-medium">{bookingsData.completed} completed</span>
+            <span className="text-green-600 text-sm font-medium">{completedBookings} completed</span>
+            {pendingBookings > 0 && <span className="text-yellow-600 text-sm ml-2">{pendingBookings} pending</span>}
           </div>
         </div>
 
@@ -97,7 +241,7 @@ export default function AnalyticsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">New Clients</p>
-              <p className="text-2xl font-bold text-gray-900">{clientData.new}</p>
+              <p className="text-2xl font-bold text-gray-900">{newClients}</p>
             </div>
             <div className="p-3 bg-purple-100 rounded-lg">
               <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -106,7 +250,7 @@ export default function AnalyticsPage() {
             </div>
           </div>
           <div className="mt-2">
-            <span className="text-gray-500 text-sm">{clientData.total} total clients</span>
+            <span className="text-gray-500 text-sm">{clients.length} total clients</span>
           </div>
         </div>
 
@@ -114,7 +258,7 @@ export default function AnalyticsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Active Subscriptions</p>
-              <p className="text-2xl font-bold text-gray-900">{clientData.subscriptions}</p>
+              <p className="text-2xl font-bold text-gray-900">{activeSubscriptions}</p>
             </div>
             <div className="p-3 bg-orange-100 rounded-lg">
               <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -133,23 +277,29 @@ export default function AnalyticsPage() {
         {/* Revenue by Service */}
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Revenue by Service</h2>
-          <div className="space-y-4">
-            {revenueData.byService.map((service, index) => (
-              <div key={index}>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600">{service.name}</span>
-                  <span className="font-medium text-gray-900">${service.revenue.toLocaleString()}</span>
+          {revenueByServiceArray.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No completed bookings in this period</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {revenueByServiceArray.map((service, index) => (
+                <div key={index}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-600">{service.name}</span>
+                    <span className="font-medium text-gray-900">${service.revenue.toLocaleString()}</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-2">
+                    <div
+                      className="bg-emerald-500 h-2 rounded-full"
+                      style={{ width: `${(service.revenue / (totalRevenue || 1)) * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{service.count} service{service.count !== 1 ? 's' : ''}</p>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-2">
-                  <div
-                    className="bg-emerald-500 h-2 rounded-full"
-                    style={{ width: `${(service.revenue / revenueData.total) * 100}%` }}
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-1">{service.count} services</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Booking Status */}
@@ -166,28 +316,32 @@ export default function AnalyticsPage() {
                   fill="none"
                   stroke="#10b981"
                   strokeWidth="12"
-                  strokeDasharray={`${(bookingsData.completed / bookingsData.total) * 440} 440`}
+                  strokeDasharray={`${(completionRate / 100) * 440} 440`}
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-gray-900">{Math.round((bookingsData.completed / bookingsData.total) * 100)}%</p>
+                  <p className="text-3xl font-bold text-gray-900">{completionRate}%</p>
                   <p className="text-sm text-gray-500">Completed</p>
                 </div>
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4 mt-4">
+          <div className="grid grid-cols-4 gap-2 mt-4">
             <div className="text-center">
-              <p className="text-2xl font-bold text-green-600">{bookingsData.completed}</p>
+              <p className="text-xl font-bold text-green-600">{completedBookings}</p>
               <p className="text-xs text-gray-500">Completed</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-yellow-600">{bookingsData.pending}</p>
+              <p className="text-xl font-bold text-purple-600">{inProgressBookings}</p>
+              <p className="text-xs text-gray-500">In Progress</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xl font-bold text-yellow-600">{pendingBookings}</p>
               <p className="text-xs text-gray-500">Pending</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-red-600">{bookingsData.cancelled}</p>
+              <p className="text-xl font-bold text-red-600">{cancelledBookings}</p>
               <p className="text-xs text-gray-500">Cancelled</p>
             </div>
           </div>
@@ -197,34 +351,34 @@ export default function AnalyticsPage() {
       {/* Top Clients */}
       <div className="bg-white rounded-xl shadow-sm p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Top Clients</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">Client</th>
-                <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">Bookings</th>
-                <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">Total Spent</th>
-                <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">Last Service</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {[
-                { name: 'Sarah Johnson', bookings: 12, spent: 2400, lastService: '2 days ago' },
-                { name: 'John Smith', bookings: 8, spent: 1800, lastService: '1 week ago' },
-                { name: 'Emily Brown', bookings: 6, spent: 1200, lastService: '3 days ago' },
-                { name: 'Mike Williams', bookings: 5, spent: 950, lastService: '5 days ago' },
-                { name: 'David Lee', bookings: 4, spent: 800, lastService: '1 week ago' },
-              ].map((client, index) => (
-                <tr key={index} className="hover:bg-gray-50">
-                  <td className="py-3 px-4 font-medium text-gray-900">{client.name}</td>
-                  <td className="py-3 px-4 text-gray-600">{client.bookings}</td>
-                  <td className="py-3 px-4 font-medium text-emerald-600">${client.spent.toLocaleString()}</td>
-                  <td className="py-3 px-4 text-gray-500">{client.lastService}</td>
+        {topClients.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500">No client data available for this period</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">Client</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">Bookings</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">Total Spent</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">Last Service</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {topClients.map((client, index) => (
+                  <tr key={index} className="hover:bg-gray-50">
+                    <td className="py-3 px-4 font-medium text-gray-900">{client.name}</td>
+                    <td className="py-3 px-4 text-gray-600">{client.bookings}</td>
+                    <td className="py-3 px-4 font-medium text-emerald-600">${client.spent.toLocaleString()}</td>
+                    <td className="py-3 px-4 text-gray-500">{formatLastService(client.lastDate)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

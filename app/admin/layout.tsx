@@ -2,6 +2,11 @@
 
 import AdminSidebar from '@/components/AdminSidebar';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import NotificationDropdown from '@/components/NotificationDropdown';
+import IncomingCallNotification from '@/components/IncomingCallNotification';
+import { ConsoleModeProvider } from '@/lib/console-mode-context';
+import { TwilioProvider } from '@/lib/twilio-context';
+import Link from 'next/link';
 import { useState } from 'react';
 
 export default function AdminLayout({
@@ -12,7 +17,11 @@ export default function AdminLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <ProtectedRoute allowedRoles={['admin', 'employee']}>
+    <ProtectedRoute>
+      <ConsoleModeProvider>
+      <TwilioProvider>
+      {/* Global incoming call notification */}
+      <IncomingCallNotification />
       <div className="flex h-screen bg-gray-100">
         {/* Mobile sidebar backdrop */}
         {sidebarOpen && (
@@ -73,20 +82,18 @@ export default function AdminLayout({
               {/* Right side actions */}
               <div className="flex items-center space-x-4">
                 {/* Notifications */}
-                <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg relative">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-                </button>
+                <NotificationDropdown />
 
                 {/* Quick add */}
-                <button className="hidden sm:flex items-center px-3 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors text-sm font-medium">
+                <Link
+                  href="/admin/bookings/new"
+                  className="hidden sm:flex items-center px-3 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors text-sm font-medium"
+                >
                   <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                   New Booking
-                </button>
+                </Link>
               </div>
             </div>
           </header>
@@ -97,6 +104,8 @@ export default function AdminLayout({
           </main>
         </div>
       </div>
+      </TwilioProvider>
+      </ConsoleModeProvider>
     </ProtectedRoute>
   );
 }

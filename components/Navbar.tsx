@@ -35,6 +35,12 @@ export default function Navbar() {
               </Link>
             ))}
             <Link
+              href="/login"
+              className="text-gray-300 hover:text-emerald-400 transition-colors duration-200"
+            >
+              Login
+            </Link>
+            <Link
               href="/book"
               className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold transition-colors duration-200"
             >
@@ -79,6 +85,13 @@ export default function Navbar() {
                 {link.label}
               </Link>
             ))}
+            <Link
+              href="/login"
+              className="block py-2 text-gray-300 hover:text-emerald-400 transition-colors duration-200"
+              onClick={() => setIsOpen(false)}
+            >
+              Login
+            </Link>
             <Link
               href="/book"
               className="block mt-4 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold text-center transition-colors duration-200"

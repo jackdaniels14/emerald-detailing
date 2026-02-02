@@ -22,8 +22,12 @@ import {
   Payment,
   Invoice,
   Payroll,
-  DailyMetrics
+  DailyMetrics,
+  POSTransaction,
+  TipAllocation,
+  Refund
 } from './types';
+import { LeadOrganization } from './sales-types';
 
 // Collection references
 const COLLECTIONS = {
@@ -36,7 +40,11 @@ const COLLECTIONS = {
   INVOICES: 'invoices',
   PAYROLL: 'payroll',
   METRICS: 'metrics',
-  USERS: 'users'
+  USERS: 'users',
+  TRANSACTIONS: 'transactions',
+  TIP_ALLOCATIONS: 'tipAllocations',
+  REFUNDS: 'refunds',
+  LEAD_ORGANIZATIONS: 'leadOrganizations'
 };
 
 // ============ CLIENTS ============
@@ -155,6 +163,8 @@ export async function clockIn(employeeId: string): Promise<string> {
   const docRef = await addDoc(collection(db, COLLECTIONS.TIME_ENTRIES), {
     employeeId,
     clockIn: Timestamp.now(),
+    clockOut: null,
+    hoursWorked: 0,
     date: now.toISOString().split('T')[0]
   });
   return docRef.id;
@@ -279,4 +289,237 @@ export async function getDailyMetrics(date: string): Promise<DailyMetrics | null
 
 export async function updateDailyMetrics(date: string, data: Partial<DailyMetrics>): Promise<void> {
   await updateDoc(doc(db, COLLECTIONS.METRICS, date), data);
+}
+
+// ============ POS TRANSACTIONS ============
+export function generateReceiptNumber(): string {
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `RCP-${dateStr}-${randomPart}`;
+}
+
+export async function getTransactions(): Promise<POSTransaction[]> {
+  const snapshot = await getDocs(
+    query(collection(db, COLLECTIONS.TRANSACTIONS), orderBy('createdAt', 'desc'))
+  );
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as POSTransaction));
+}
+
+export async function getTransaction(id: string): Promise<POSTransaction | null> {
+  const docRef = await getDoc(doc(db, COLLECTIONS.TRANSACTIONS, id));
+  if (!docRef.exists()) return null;
+  return { id: docRef.id, ...docRef.data() } as POSTransaction;
+}
+
+export async function getTransactionByReceiptNumber(receiptNumber: string): Promise<POSTransaction | null> {
+  const snapshot = await getDocs(
+    query(
+      collection(db, COLLECTIONS.TRANSACTIONS),
+      where('receiptNumber', '==', receiptNumber)
+    )
+  );
+  if (snapshot.empty) return null;
+  const doc = snapshot.docs[0];
+  return { id: doc.id, ...doc.data() } as POSTransaction;
+}
+
+export async function getTransactionsByDate(date: string): Promise<POSTransaction[]> {
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const snapshot = await getDocs(
+    query(
+      collection(db, COLLECTIONS.TRANSACTIONS),
+      where('createdAt', '>=', Timestamp.fromDate(startOfDay)),
+      where('createdAt', '<=', Timestamp.fromDate(endOfDay)),
+      orderBy('createdAt', 'desc')
+    )
+  );
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as POSTransaction));
+}
+
+export async function getTransactionsByDateRange(startDate: string, endDate: string): Promise<POSTransaction[]> {
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
+
+  const snapshot = await getDocs(
+    query(
+      collection(db, COLLECTIONS.TRANSACTIONS),
+      where('createdAt', '>=', Timestamp.fromDate(start)),
+      where('createdAt', '<=', Timestamp.fromDate(end)),
+      orderBy('createdAt', 'desc')
+    )
+  );
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as POSTransaction));
+}
+
+export async function getPendingCheckouts(): Promise<Booking[]> {
+  const snapshot = await getDocs(
+    query(
+      collection(db, COLLECTIONS.BOOKINGS),
+      where('status', '==', 'completed'),
+      where('paymentStatus', '==', 'pending')
+    )
+  );
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
+}
+
+export async function createTransaction(data: Omit<POSTransaction, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  const docRef = await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), {
+    ...data,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now()
+  });
+  return docRef.id;
+}
+
+export async function updateTransaction(id: string, data: Partial<POSTransaction>): Promise<void> {
+  await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, id), {
+    ...data,
+    updatedAt: Timestamp.now()
+  });
+}
+
+// ============ TIP ALLOCATIONS ============
+export async function getTipAllocations(): Promise<TipAllocation[]> {
+  const snapshot = await getDocs(
+    query(collection(db, COLLECTIONS.TIP_ALLOCATIONS), orderBy('createdAt', 'desc'))
+  );
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TipAllocation));
+}
+
+export async function getTipAllocationsByEmployee(employeeId: string, startDate?: string, endDate?: string): Promise<TipAllocation[]> {
+  let q = query(
+    collection(db, COLLECTIONS.TIP_ALLOCATIONS),
+    where('employeeId', '==', employeeId)
+  );
+
+  if (startDate && endDate) {
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    q = query(
+      collection(db, COLLECTIONS.TIP_ALLOCATIONS),
+      where('employeeId', '==', employeeId),
+      where('createdAt', '>=', Timestamp.fromDate(start)),
+      where('createdAt', '<=', Timestamp.fromDate(end))
+    );
+  }
+
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TipAllocation));
+}
+
+export async function getPendingTipsByEmployee(employeeId: string): Promise<TipAllocation[]> {
+  const snapshot = await getDocs(
+    query(
+      collection(db, COLLECTIONS.TIP_ALLOCATIONS),
+      where('employeeId', '==', employeeId),
+      where('status', '==', 'pending')
+    )
+  );
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TipAllocation));
+}
+
+export async function createTipAllocation(data: Omit<TipAllocation, 'id' | 'createdAt'>): Promise<string> {
+  const docRef = await addDoc(collection(db, COLLECTIONS.TIP_ALLOCATIONS), {
+    ...data,
+    createdAt: Timestamp.now()
+  });
+  return docRef.id;
+}
+
+export async function updateTipAllocation(id: string, data: Partial<TipAllocation>): Promise<void> {
+  await updateDoc(doc(db, COLLECTIONS.TIP_ALLOCATIONS, id), data);
+}
+
+export async function markTipsAsPaid(tipIds: string[], payPeriodId: string): Promise<void> {
+  const updates = tipIds.map(id =>
+    updateDoc(doc(db, COLLECTIONS.TIP_ALLOCATIONS, id), {
+      status: 'paid',
+      payPeriodId
+    })
+  );
+  await Promise.all(updates);
+}
+
+// ============ REFUNDS ============
+export async function getRefunds(): Promise<Refund[]> {
+  const snapshot = await getDocs(
+    query(collection(db, COLLECTIONS.REFUNDS), orderBy('createdAt', 'desc'))
+  );
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Refund));
+}
+
+export async function getRefundsByTransaction(transactionId: string): Promise<Refund[]> {
+  const snapshot = await getDocs(
+    query(
+      collection(db, COLLECTIONS.REFUNDS),
+      where('transactionId', '==', transactionId)
+    )
+  );
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Refund));
+}
+
+export async function createRefund(data: Omit<Refund, 'id' | 'createdAt'>): Promise<string> {
+  const docRef = await addDoc(collection(db, COLLECTIONS.REFUNDS), {
+    ...data,
+    createdAt: Timestamp.now()
+  });
+  return docRef.id;
+}
+
+export async function updateRefund(id: string, data: Partial<Refund>): Promise<void> {
+  await updateDoc(doc(db, COLLECTIONS.REFUNDS, id), data);
+}
+
+// ============ LEAD ORGANIZATIONS ============
+export async function getLeadOrganizations(): Promise<LeadOrganization[]> {
+  const snapshot = await getDocs(
+    query(collection(db, COLLECTIONS.LEAD_ORGANIZATIONS), orderBy('createdAt', 'desc'))
+  );
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LeadOrganization));
+}
+
+export async function getLeadOrganization(id: string): Promise<LeadOrganization | null> {
+  const docRef = await getDoc(doc(db, COLLECTIONS.LEAD_ORGANIZATIONS, id));
+  if (!docRef.exists()) return null;
+  return { id: docRef.id, ...docRef.data() } as LeadOrganization;
+}
+
+export async function getActiveLeadOrganizations(): Promise<LeadOrganization[]> {
+  const snapshot = await getDocs(
+    query(
+      collection(db, COLLECTIONS.LEAD_ORGANIZATIONS),
+      where('isActive', '==', true),
+      orderBy('name', 'asc')
+    )
+  );
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LeadOrganization));
+}
+
+export async function createLeadOrganization(data: Omit<LeadOrganization, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  const docRef = await addDoc(collection(db, COLLECTIONS.LEAD_ORGANIZATIONS), {
+    ...data,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now()
+  });
+  return docRef.id;
+}
+
+export async function updateLeadOrganization(id: string, data: Partial<LeadOrganization>): Promise<void> {
+  await updateDoc(doc(db, COLLECTIONS.LEAD_ORGANIZATIONS, id), {
+    ...data,
+    updatedAt: Timestamp.now()
+  });
+}
+
+export async function deleteLeadOrganization(id: string): Promise<void> {
+  await deleteDoc(doc(db, COLLECTIONS.LEAD_ORGANIZATIONS, id));
 }

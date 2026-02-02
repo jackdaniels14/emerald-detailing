@@ -13,12 +13,52 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
+    // Role check functions
     function isAdmin() {
       return isAuthenticated() && getUserRole() == 'admin';
     }
 
-    function isEmployee() {
-      return isAuthenticated() && (getUserRole() == 'employee' || getUserRole() == 'admin');
+    function isOfficeDesk() {
+      return isAuthenticated() && (getUserRole() == 'office_desk' || getUserRole() == 'admin');
+    }
+
+    function isSalesRep() {
+      return isAuthenticated() && (getUserRole() == 'sales_rep' || getUserRole() == 'office_desk' || getUserRole() == 'admin');
+    }
+
+    function isDetailingTech() {
+      return isAuthenticated() && (getUserRole() == 'detailing_tech' || getUserRole() == 'sales_rep' || getUserRole() == 'office_desk' || getUserRole() == 'admin');
+    }
+
+    // Any staff member (all employee roles)
+    function isStaff() {
+      let role = getUserRole();
+      return isAuthenticated() && (role == 'admin' || role == 'office_desk' || role == 'sales_rep' || role == 'detailing_tech');
+    }
+
+    // Can manage bookings (sales_rep and above)
+    function canManageBookings() {
+      return isSalesRep();
+    }
+
+    // Can manage clients (sales_rep and above)
+    function canManageClients() {
+      return isSalesRep();
+    }
+
+    // Can access POS (office_desk and above)
+    function canAccessPOS() {
+      return isOfficeDesk();
+    }
+
+    // Can access payroll (admin only)
+    function canAccessPayroll() {
+      return isAdmin();
+    }
+
+    // Can access analytics (admin only)
+    function canAccessAnalytics() {
+      return isAdmin();
     }
 
     function isOwner(userId) {
@@ -35,45 +75,56 @@ service cloud.firestore {
 
     // Clients collection
     match /clients/{clientId} {
-      allow read: if isEmployee();
+      allow read: if canManageClients();
       allow create: if isAuthenticated();
-      allow update: if isEmployee();
+      allow update: if canManageClients();
       allow delete: if isAdmin();
     }
 
     // Employees collection
     match /employees/{employeeId} {
-      allow read: if isEmployee();
-      allow create, update, delete: if isAdmin();
+      // Staff can read basic employee info, but sensitive fields are restricted
+      allow read: if isStaff();
+
+      // Only admins can create or delete employees
+      allow create, delete: if isAdmin();
+
+      // Updates: admins can update anything, employees can update only their own basic fields
+      allow update: if isAdmin() ||
+        (isStaff() &&
+         // Employee can only update their own record (matched by email)
+         resource.data.email == request.auth.token.email &&
+         // Cannot change sensitive fields
+         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hourlyRate', 'commissionRate', 'role', 'isActive', 'hireDate']));
     }
 
     // Bookings collection
     match /bookings/{bookingId} {
-      allow read: if isAuthenticated();
+      allow read: if isStaff();
       allow create: if isAuthenticated();
-      allow update: if isEmployee();
+      allow update: if isStaff();
       allow delete: if isAdmin();
     }
 
     // Time entries collection
     match /timeEntries/{entryId} {
-      allow read: if isEmployee();
-      allow create: if isEmployee();
-      allow update: if isEmployee();
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
       allow delete: if isAdmin();
     }
 
     // Schedules collection
     match /schedules/{scheduleId} {
-      allow read: if isEmployee();
+      allow read: if isStaff();
       allow create, update: if isAdmin();
       allow delete: if isAdmin();
     }
 
     // Payments collection
     match /payments/{paymentId} {
-      allow read: if isEmployee();
-      allow create: if isEmployee();
+      allow read: if canAccessPOS();
+      allow create: if canAccessPOS();
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
@@ -81,20 +132,172 @@ service cloud.firestore {
     // Invoices collection
     match /invoices/{invoiceId} {
       allow read: if isAuthenticated();
-      allow create, update: if isEmployee();
+      allow create, update: if canAccessPOS();
+      allow delete: if isAdmin();
+    }
+
+    // POS Transactions collection (legacy name)
+    match /posTransactions/{transactionId} {
+      allow read: if canAccessPOS();
+      allow create: if canAccessPOS();
+      allow update: if canAccessPOS();
+      allow delete: if isAdmin();
+    }
+
+    // Transactions collection (used by POS system)
+    match /transactions/{transactionId} {
+      allow read: if canAccessPOS();
+      allow create: if canAccessPOS();
+      allow update: if canAccessPOS();
+      allow delete: if isAdmin();
+    }
+
+    // Tip Allocations collection
+    match /tipAllocations/{tipId} {
+      allow read: if canAccessPOS();
+      allow create: if canAccessPOS();
+      allow update: if canAccessPOS();
+      allow delete: if isAdmin();
+    }
+
+    // Refunds collection
+    match /refunds/{refundId} {
+      allow read: if canAccessPOS();
+      allow create: if canAccessPOS();
+      allow update: if isAdmin();
       allow delete: if isAdmin();
     }
 
     // Payroll collection
     match /payroll/{payrollId} {
-      allow read: if isAdmin();
+      allow read: if canAccessPayroll();
       allow create, update, delete: if isAdmin();
     }
 
-    // Metrics collection
+    // Pay periods collection
+    match /payPeriods/{periodId} {
+      allow read: if canAccessPayroll();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Metrics collection (admin only for analytics)
     match /metrics/{metricId} {
-      allow read: if isEmployee();
+      allow read: if canAccessAnalytics();
       allow write: if isAdmin();
+    }
+
+    // Notifications collection
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && resource.data.recipientId == request.auth.uid;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && resource.data.recipientId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.recipientId == request.auth.uid;
+    }
+
+    // Personal Tasks collection (can be assigned to others)
+    match /personalTasks/{taskId} {
+      allow read: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || resource.data.assignedTo == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || resource.data.assignedTo == request.auth.uid);
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // Personal Notes collection (can be assigned to others)
+    match /personalNotes/{noteId} {
+      allow read: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || resource.data.assignedTo == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // Personal Reminders collection (can be assigned to others)
+    match /personalReminders/{reminderId} {
+      allow read: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || resource.data.assignedTo == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || resource.data.assignedTo == request.auth.uid);
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // Team Notes collection (visible to all staff, editable by author or admin)
+    match /teamNotes/{noteId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && request.resource.data.authorId == request.auth.uid;
+      allow update: if isStaff() && (resource.data.authorId == request.auth.uid || isAdmin());
+      allow delete: if isAuthenticated() && (resource.data.authorId == request.auth.uid || isAdmin());
+    }
+
+    // Direct Messages collection (private between sender and recipient)
+    match /directMessages/{messageId} {
+      allow read: if isAuthenticated() &&
+        (resource.data.senderId == request.auth.uid || resource.data.recipientId == request.auth.uid);
+      allow create: if isStaff() && request.resource.data.senderId == request.auth.uid;
+      allow update: if isAuthenticated() &&
+        (resource.data.senderId == request.auth.uid || resource.data.recipientId == request.auth.uid);
+      allow delete: if isAuthenticated() &&
+        (resource.data.senderId == request.auth.uid || resource.data.recipientId == request.auth.uid);
+    }
+
+    // =========================================================================
+    // SALES CRM COLLECTIONS
+    // =========================================================================
+
+    // Sales Leads collection (sales_rep and above can access)
+    match /salesLeads/{leadId} {
+      allow read: if isSalesRep();
+      allow create: if isSalesRep();
+      allow update: if isSalesRep();
+      allow delete: if isAdmin();
+    }
+
+    // Lead Activities collection (sales_rep and above can access)
+    match /leadActivities/{activityId} {
+      allow read: if isSalesRep();
+      allow create: if isSalesRep();
+      allow update: if isSalesRep();
+      allow delete: if isAdmin();
+    }
+
+    // Email Templates collection (sales_rep and above can access)
+    match /emailTemplates/{templateId} {
+      allow read: if isSalesRep();
+      allow create: if isSalesRep();
+      allow update: if isSalesRep();
+      allow delete: if isAdmin();
+    }
+
+    // Settings collection (staff can read, admin can write)
+    match /settings/{settingId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // Twilio Logs collection (staff can read/write for call logging)
+    match /twilioLogs/{logId} {
+      allow read: if isSalesRep();
+      allow create: if isStaff();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Call Recordings collection (sales_rep and above can access)
+    match /callRecordings/{recordingId} {
+      allow read: if isSalesRep();
+      allow create: if isStaff();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Lead Organizations collection (sales_rep and above can access)
+    match /leadOrganizations/{orgId} {
+      allow read: if isSalesRep();
+      allow create: if isSalesRep();
+      allow update: if isSalesRep();
+      allow delete: if isAdmin();
     }
   }
 }

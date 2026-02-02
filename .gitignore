@@ -26,3 +26,6 @@ npm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Local config with secrets
+functions/set-config.local.bat

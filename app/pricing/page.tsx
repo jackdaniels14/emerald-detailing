@@ -13,9 +13,9 @@ export default function PricingPage() {
     description: 'Perfect for regular maintenance and quick refreshes.',
     discount: '10%',
     tiers: [
-      { vehicle: 'Sedan', interior: 125, exterior: 100, full: 202 },
-      { vehicle: 'SUV/Crossover', interior: 175, exterior: 150, full: 292 },
-      { vehicle: 'Truck', interior: 225, exterior: 200, full: 382 },
+      { vehicle: 'Sedan', interior: 150, exterior: 120, full: 242 },
+      { vehicle: 'SUV/Crossover', interior: 210, exterior: 180, full: 350 },
+      { vehicle: 'Truck', interior: 270, exterior: 240, full: 458 },
     ],
   };
 
@@ -25,9 +25,9 @@ export default function PricingPage() {
     discount: '20%',
     featured: true,
     tiers: [
-      { vehicle: 'Sedan', interior: 300, exterior: 250, full: 440 },
-      { vehicle: 'SUV/Crossover', interior: 350, exterior: 300, full: 520 },
-      { vehicle: 'Truck', interior: 400, exterior: 350, full: 600 },
+      { vehicle: 'Sedan', interior: 360, exterior: 300, full: 528 },
+      { vehicle: 'SUV/Crossover', interior: 420, exterior: 360, full: 624 },
+      { vehicle: 'Truck', interior: 480, exterior: 420, full: 720 },
     ],
   };
 

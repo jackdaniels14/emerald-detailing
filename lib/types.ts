@@ -18,11 +18,11 @@ export interface Client {
 }
 
 export interface Vehicle {
-  id: string;
-  year: number;
+  id?: string;
+  year: string;
   make: string;
   model: string;
-  type: 'sedan' | 'suv' | 'truck';
+  type: 'sedan' | 'suv' | 'truck' | 'coupe' | 'van' | 'other';
   color?: string;
   licensePlate?: string;
   notes?: string;
@@ -35,12 +35,23 @@ export interface Employee {
   phone: string;
   firstName: string;
   lastName: string;
-  role: 'admin' | 'employee';
+  role: 'admin' | 'office_desk' | 'sales_rep' | 'detailing_tech';
   hourlyRate: number;
+  commissionRate: number; // e.g., 0.40 for 40%
   isActive: boolean;
   hireDate: Date;
+  scheduleColor: string; // Hex color for calendar display
+  documents?: EmployeeDocument[];
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface EmployeeDocument {
+  id: string;
+  name: string;
+  type: 'id' | 'w4' | 'w2' | 'i9' | 'direct_deposit' | 'other';
+  url: string;
+  uploadedAt: Date;
 }
 
 export interface TimeEntry {
@@ -91,9 +102,19 @@ export interface Booking {
   addOnsPrice: number;
   discount: number;
   totalPrice: number;
+  customPriceApplied?: boolean;
+
+  // Booking type & recurring
+  bookingType?: 'standard' | 'membership';
+  recurringSchedule?: 'none' | 'weekly' | 'biweekly' | 'monthly';
+  isRecurring?: boolean;
+
+  // Multi-vehicle support
+  vehicleInfo?: string;
+  multiVehicleBooking?: boolean;
 
   // Payment
-  paymentStatus: 'pending' | 'paid' | 'refunded';
+  paymentStatus: 'pending' | 'partial' | 'paid' | 'refunded';
   paymentMethod?: 'card' | 'cash' | 'venmo' | 'zelle';
   paymentDate?: Date;
 
@@ -187,4 +208,154 @@ export interface ServiceMetrics {
   count: number;
   revenue: number;
   averageRating?: number;
+}
+
+// ============ NOTIFICATIONS ============
+export interface Notification {
+  id: string;
+  recipientId: string; // Employee ID who should see this
+  type: 'booking_assigned' | 'booking_updated' | 'booking_cancelled' | 'schedule_change' | 'general';
+  title: string;
+  message: string;
+  bookingId?: string;
+  read: boolean;
+  createdAt: Date;
+}
+
+// ============ POS SYSTEM ============
+export interface TransactionItem {
+  id: string;
+  description: string;
+  type: 'service' | 'addon' | 'product' | 'discount';
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+export interface TransactionPayment {
+  id: string;
+  method: 'card' | 'cash' | 'venmo' | 'zelle';
+  amount: number;
+  status: 'pending' | 'completed' | 'failed' | 'refunded';
+  stripePaymentIntentId?: string;
+  cardLast4?: string;
+  cardBrand?: string;
+  refundedAmount?: number;
+  processedAt?: Date;
+}
+
+export interface POSTransaction {
+  id: string;
+  type: 'booking_checkout' | 'walk_in_sale';
+  bookingId?: string;
+  clientId?: string;
+  employeeId: string;           // Who processed the transaction
+  assignedEmployeeId?: string;  // Who did the work (for tips)
+
+  items: TransactionItem[];
+  subtotal: number;
+  discount: number;
+  tax: number;
+  tip: number;
+  total: number;
+
+  payments: TransactionPayment[];  // Split payment support
+  status: 'pending' | 'completed' | 'partially_refunded' | 'fully_refunded';
+
+  receiptNumber: string;
+  receiptSentTo?: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TipAllocation {
+  id: string;
+  transactionId: string;
+  employeeId: string;
+  amount: number;
+  status: 'pending' | 'paid';
+  payPeriodId?: string;
+  createdAt: Date;
+}
+
+export interface Refund {
+  id: string;
+  transactionId: string;
+  paymentId: string;
+  amount: number;
+  reason: string;
+  type: 'full' | 'partial';
+  stripeRefundId?: string;
+  processedBy: string;
+  status: 'pending' | 'completed' | 'failed';
+  createdAt: Date;
+}
+
+// ============ PERSONAL TASK TRACKER ============
+export interface PersonalTask {
+  id: string;
+  userId: string;
+  title: string;
+  description?: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status: 'pending' | 'in_progress' | 'completed';
+  dueDate?: Date;
+  dueTime?: string;
+  category?: string;
+  reminder?: Date;
+  reminderSent?: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PersonalNote {
+  id: string;
+  userId: string;
+  title: string;
+  content: string;
+  color?: string;
+  isPinned?: boolean;
+  tags?: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PersonalReminder {
+  id: string;
+  userId: string;
+  title: string;
+  message?: string;
+  reminderTime: Date;
+  isRecurring?: boolean;
+  recurringPattern?: 'daily' | 'weekly' | 'monthly';
+  isCompleted: boolean;
+  createdAt: Date;
+}
+
+// Team Notes - visible to all staff
+export interface TeamNote {
+  id: string;
+  authorId: string;
+  authorName: string;
+  title: string;
+  content: string;
+  isPinned?: boolean;
+  priority?: 'normal' | 'important' | 'urgent';
+  category?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Direct Messages between users
+export interface DirectMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  recipientId: string;
+  recipientName: string;
+  subject: string;
+  content: string;
+  isRead: boolean;
+  createdAt: Date;
 }
