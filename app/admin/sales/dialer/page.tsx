@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { collection, getDocs, query, where, Timestamp, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp, onSnapshot, doc, updateDoc, serverTimestamp, addDoc, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth-context';
 import { useTwilio } from '@/lib/twilio-context';
@@ -12,6 +12,7 @@ import {
   LeadType,
   PipelineStage,
   CallScript,
+  CallLog,
   LEAD_TYPE_CONFIG,
   PIPELINE_STAGE_CONFIG,
   TIER_CONFIG,
@@ -152,6 +153,9 @@ export default function PowerDialerPage() {
   // Custom scripts from Firestore
   const [customScripts, setCustomScripts] = useState<CallScript[]>([]);
   const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null);
+
+  // Call tracking
+  const [callStartTime, setCallStartTime] = useState<Date | null>(null);
 
   // Claim timeout in milliseconds (5 minutes)
   const CLAIM_TIMEOUT_MS = 5 * 60 * 1000;
@@ -330,14 +334,42 @@ export default function PowerDialerPage() {
   const startCall = async () => {
     if (!currentLead?.phone) return;
     setLastCallDuration(0);
+    setCallStartTime(new Date());
     await makeCall(currentLead.phone);
   };
 
   const startDirectCall = async () => {
     if (!directDialPhone) return;
     setLastCallDuration(0);
+    setCallStartTime(new Date());
     await makeCall(directDialPhone);
   };
+
+  // Log a call to the callLogs collection
+  async function logCall(outcome: string, duration: number, newStage?: PipelineStage) {
+    if (!currentLead || !userProfile) return;
+
+    try {
+      const now = new Date();
+      await addDoc(collection(db, 'callLogs'), {
+        leadId: currentLead.id,
+        leadName: currentLead.companyName || currentLead.contactName,
+        phoneNumber: currentLead.phone,
+        callerId: userProfile.uid,
+        callerName: `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || userProfile.email,
+        duration: duration,
+        outcome: outcome,
+        leadType: currentLead.leadType,
+        leadStage: currentLead.stage,
+        newStage: newStage || null,
+        startedAt: callStartTime || now,
+        endedAt: now,
+        createdAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error logging call:', error);
+    }
+  }
 
   const endCall = () => {
     twilioEndCall();
@@ -355,6 +387,9 @@ export default function PowerDialerPage() {
       setDialerStats(prev => ({ ...prev, booked: prev.booked + 1 }));
     }
 
+    // Log the call
+    logCall(outcome, lastCallDuration, newStage);
+
     // Release the lead claim (non-blocking)
     if (currentLead) {
       releaseLead(currentLead.id);
@@ -363,6 +398,7 @@ export default function PowerDialerPage() {
     // Reset state
     setShowOutcomePanel(false);
     setLastCallDuration(0);
+    setCallStartTime(null);
 
     // Move to next lead (real-time listener will handle removal if stage changed)
     setCurrentIndex(prev => Math.min(prev + 1, leads.length - 1));
@@ -391,6 +427,9 @@ export default function PowerDialerPage() {
     if (bookedOutcomes.includes(outcome)) {
       setDialerStats(prev => ({ ...prev, booked: prev.booked + 1 }));
     }
+
+    // Log the manual call (duration 0 for manual logs)
+    logCall(outcome, 0, newStage);
 
     // Release the lead claim (non-blocking)
     if (currentLead) {

@@ -209,6 +209,42 @@ export interface LeadOrganization {
 }
 
 // =========================================================================
+// CALL LOGS
+// =========================================================================
+
+/**
+ * Call Log Entry
+ * Tracks all calls made through the power dialer
+ */
+export interface CallLog {
+  id: string;
+
+  // Call details
+  leadId: string;
+  leadName: string;              // Company/contact name for quick reference
+  phoneNumber: string;
+
+  // Caller info
+  callerId: string;              // User ID who made the call
+  callerName: string;            // User name for display
+
+  // Call metrics
+  duration: number;              // Duration in seconds
+  outcome: string;               // The interaction outcome
+  notes?: string;                // Optional notes about the call
+
+  // Lead info at time of call
+  leadType: LeadType;
+  leadStage: PipelineStage;
+  newStage?: PipelineStage;      // Stage after the call (if changed)
+
+  // Timestamps
+  startedAt: Date;
+  endedAt: Date;
+  createdAt: Date;
+}
+
+// =========================================================================
 // CALL SCRIPTS
 // =========================================================================
 

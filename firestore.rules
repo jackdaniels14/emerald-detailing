@@ -319,6 +319,14 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Call Logs collection (sales_rep and above can access)
+    match /callLogs/{logId} {
+      allow read: if isSalesRep();
+      allow create: if isSalesRep();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
     // =========================================================================
     // AFFILIATE PROGRAM COLLECTIONS
     // =========================================================================
