@@ -346,29 +346,28 @@ export default function PowerDialerPage() {
   };
 
   // Log a call to the callLogs collection
-  async function logCall(outcome: string, duration: number, newStage?: PipelineStage) {
-    if (!currentLead || !userProfile) return;
+  function logCall(lead: SalesLead, outcome: string, duration: number, startTime: Date | null, newStage?: PipelineStage) {
+    if (!lead || !userProfile) return;
 
-    try {
-      const now = new Date();
-      await addDoc(collection(db, 'callLogs'), {
-        leadId: currentLead.id,
-        leadName: currentLead.companyName || currentLead.contactName,
-        phoneNumber: currentLead.phone,
-        callerId: userProfile.uid,
-        callerName: `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || userProfile.email,
-        duration: duration,
-        outcome: outcome,
-        leadType: currentLead.leadType,
-        leadStage: currentLead.stage,
-        newStage: newStage || null,
-        startedAt: callStartTime || now,
-        endedAt: now,
-        createdAt: serverTimestamp()
-      });
-    } catch (error) {
+    const now = new Date();
+    // Fire and forget - don't await
+    addDoc(collection(db, 'callLogs'), {
+      leadId: lead.id,
+      leadName: lead.companyName || lead.contactName,
+      phoneNumber: lead.phone || '',
+      callerId: userProfile.uid,
+      callerName: `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || userProfile.email || 'Unknown',
+      duration: duration,
+      outcome: outcome,
+      leadType: lead.leadType,
+      leadStage: lead.stage,
+      newStage: newStage || null,
+      startedAt: startTime || now,
+      endedAt: now,
+      createdAt: serverTimestamp()
+    }).catch(error => {
       console.error('Error logging call:', error);
-    }
+    });
   }
 
   const endCall = () => {
@@ -376,6 +375,11 @@ export default function PowerDialerPage() {
   };
 
   const handleOutcomeComplete = (outcome: InteractionOutcome, newStage?: PipelineStage) => {
+    // Capture current state before any changes
+    const leadToLog = currentLead;
+    const durationToLog = lastCallDuration;
+    const startTimeToLog = callStartTime;
+
     // Update stats based on outcome
     const positiveOutcomes = ['interested', 'meeting_booked', 'proposal_sent', 'sale_made', 'email_replied'];
     const bookedOutcomes = ['meeting_booked', 'sale_made'];
@@ -387,12 +391,11 @@ export default function PowerDialerPage() {
       setDialerStats(prev => ({ ...prev, booked: prev.booked + 1 }));
     }
 
-    // Log the call
-    logCall(outcome, lastCallDuration, newStage);
-
-    // Release the lead claim (non-blocking)
-    if (currentLead) {
-      releaseLead(currentLead.id);
+    // Log the call with captured data
+    if (leadToLog) {
+      logCall(leadToLog, outcome, durationToLog, startTimeToLog, newStage);
+      // Release the lead claim (non-blocking)
+      releaseLead(leadToLog.id);
     }
 
     // Reset state
@@ -415,6 +418,9 @@ export default function PowerDialerPage() {
   };
 
   const handleManualOutcomeComplete = (outcome: InteractionOutcome, newStage?: PipelineStage) => {
+    // Capture current lead before any changes
+    const leadToLog = currentLead;
+
     // Update stats based on outcome
     const positiveOutcomes = ['interested', 'meeting_booked', 'proposal_sent', 'sale_made', 'email_replied'];
     const bookedOutcomes = ['meeting_booked', 'sale_made'];
@@ -428,12 +434,11 @@ export default function PowerDialerPage() {
       setDialerStats(prev => ({ ...prev, booked: prev.booked + 1 }));
     }
 
-    // Log the manual call (duration 0 for manual logs)
-    logCall(outcome, 0, newStage);
-
-    // Release the lead claim (non-blocking)
-    if (currentLead) {
-      releaseLead(currentLead.id);
+    // Log the manual call with captured data (duration 0 for manual logs)
+    if (leadToLog) {
+      logCall(leadToLog, outcome, 0, null, newStage);
+      // Release the lead claim (non-blocking)
+      releaseLead(leadToLog.id);
     }
 
     setShowManualOutcome(false);
