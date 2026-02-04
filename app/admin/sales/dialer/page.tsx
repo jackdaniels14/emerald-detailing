@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth-context';
 import { useTwilio } from '@/lib/twilio-context';
@@ -11,6 +11,7 @@ import {
   SalesLead,
   LeadType,
   PipelineStage,
+  CallScript,
   LEAD_TYPE_CONFIG,
   PIPELINE_STAGE_CONFIG,
   TIER_CONFIG,
@@ -18,7 +19,8 @@ import {
 import EmailComposer from '@/components/sales/EmailComposer';
 import InteractionOutcomeModal, { InteractionOutcome } from '@/components/sales/InteractionOutcomeModal';
 
-const CALL_SCRIPTS: Record<LeadType, string> = {
+// Default scripts - used as fallback when no custom scripts are configured
+const DEFAULT_CALL_SCRIPTS: Record<LeadType, string> = {
   auto_shop: `Hi, may I speak with the owner or manager?
 
 My name is [YOUR NAME] from Emerald Detailing. We partner with auto shops to provide professional detailing services for your customers' vehicles.
@@ -147,6 +149,75 @@ export default function PowerDialerPage() {
   const [directDialPhone, setDirectDialPhone] = useState('');
   const [directDialName, setDirectDialName] = useState('');
 
+  // Custom scripts from Firestore
+  const [customScripts, setCustomScripts] = useState<CallScript[]>([]);
+  const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null);
+
+  // Claim timeout in milliseconds (5 minutes)
+  const CLAIM_TIMEOUT_MS = 5 * 60 * 1000;
+
+  // Load custom scripts from Firestore
+  useEffect(() => {
+    fetchCustomScripts();
+  }, []);
+
+  async function fetchCustomScripts() {
+    try {
+      const scriptsRef = collection(db, 'callScripts');
+      const snapshot = await getDocs(scriptsRef);
+      const scriptsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate() || new Date(),
+        updatedAt: doc.data().updatedAt?.toDate() || new Date()
+      })) as CallScript[];
+      setCustomScripts(scriptsData);
+    } catch (error) {
+      console.error('Error fetching custom scripts:', error);
+    }
+  }
+
+  // Check if a lead's claim has expired
+  function isClaimExpired(lead: SalesLead): boolean {
+    if (!lead.dialerClaimedAt) return true;
+    const claimedAt = lead.dialerClaimedAt instanceof Date
+      ? lead.dialerClaimedAt
+      : new Date((lead.dialerClaimedAt as any)?.seconds * 1000 || 0);
+    return Date.now() - claimedAt.getTime() > CLAIM_TIMEOUT_MS;
+  }
+
+  // Check if a lead is available (not claimed by someone else)
+  function isLeadAvailable(lead: SalesLead): boolean {
+    if (!lead.dialerClaimedBy) return true;
+    if (lead.dialerClaimedBy === userProfile?.uid) return true;
+    return isClaimExpired(lead);
+  }
+
+  // Claim a lead for the current user
+  async function claimLead(leadId: string) {
+    if (!userProfile?.uid) return;
+    try {
+      await updateDoc(doc(db, 'salesLeads', leadId), {
+        dialerClaimedBy: userProfile.uid,
+        dialerClaimedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error claiming lead:', error);
+    }
+  }
+
+  // Release a lead claim
+  async function releaseLead(leadId: string) {
+    try {
+      await updateDoc(doc(db, 'salesLeads', leadId), {
+        dialerClaimedBy: null,
+        dialerClaimedAt: null
+      });
+    } catch (error) {
+      console.error('Error releasing lead:', error);
+    }
+  }
+
   // Handle direct dial from phone param
   useEffect(() => {
     if (phoneParam) {
@@ -156,41 +227,29 @@ export default function PowerDialerPage() {
       setLoading(false);
     } else {
       setDirectDialMode(false);
-      fetchLeads();
     }
   }, [phoneParam, nameParam]);
 
+  // Real-time listener for leads
   useEffect(() => {
-    if (!phoneParam) {
-      fetchLeads();
-    }
-  }, [filterType, filterStage]);
+    if (phoneParam) return; // Skip if in direct dial mode
 
-  // Show outcome panel when call ends
-  useEffect(() => {
-    if (!isOnCall && !isConnecting && lastCallDuration === 0 && twilioCallDuration > 0) {
-      // Call just ended
-      setLastCallDuration(twilioCallDuration);
-      setShowOutcomePanel(true);
-      setDialerStats(prev => ({ ...prev, calls: prev.calls + 1 }));
-    }
-  }, [isOnCall, isConnecting, twilioCallDuration, lastCallDuration]);
-
-  async function fetchLeads() {
     setLoading(true);
-    try {
-      const leadsRef = collection(db, 'salesLeads');
-      const snapshot = await getDocs(leadsRef);
+    const leadsRef = collection(db, 'salesLeads');
+
+    const unsubscribe = onSnapshot(leadsRef, (snapshot) => {
       let leadsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as SalesLead[];
 
-      // Filter by stage and type
+      // Filter by stage, type, and availability
       leadsData = leadsData.filter(lead => {
         if (!lead.isActive) return false;
         if (lead.stage !== filterStage) return false;
         if (filterType !== 'all' && lead.leadType !== filterType) return false;
+        // Only show leads that are available (not claimed by others)
+        if (!isLeadAvailable(lead)) return false;
         return true;
       });
 
@@ -206,13 +265,59 @@ export default function PowerDialerPage() {
       });
 
       setLeads(leadsData);
-      setCurrentIndex(0);
-    } catch (error) {
-      console.error('Error fetching leads:', error);
-    } finally {
       setLoading(false);
+    }, (error) => {
+      console.error('Error listening to leads:', error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [filterType, filterStage, phoneParam, userProfile?.uid]);
+
+  // Claim the current lead when it changes
+  useEffect(() => {
+    const lead = leads[currentIndex];
+    if (lead && userProfile?.uid) {
+      claimLead(lead.id);
     }
-  }
+  }, [currentIndex, leads, userProfile?.uid]);
+
+  // Release claim when leaving the page
+  useEffect(() => {
+    return () => {
+      const lead = leads[currentIndex];
+      if (lead) {
+        releaseLead(lead.id);
+      }
+    };
+  }, []);
+
+  // Refresh claim every 2 minutes to keep it active
+  useEffect(() => {
+    const lead = leads[currentIndex];
+    if (!lead || !userProfile?.uid) return;
+
+    const interval = setInterval(() => {
+      claimLead(lead.id);
+    }, 2 * 60 * 1000); // Refresh every 2 minutes
+
+    return () => clearInterval(interval);
+  }, [currentIndex, leads, userProfile?.uid]);
+
+  // Reset selected script when lead changes
+  useEffect(() => {
+    setSelectedScriptId(null);
+  }, [currentIndex]);
+
+  // Show outcome panel when call ends
+  useEffect(() => {
+    if (!isOnCall && !isConnecting && lastCallDuration === 0 && twilioCallDuration > 0) {
+      // Call just ended
+      setLastCallDuration(twilioCallDuration);
+      setShowOutcomePanel(true);
+      setDialerStats(prev => ({ ...prev, calls: prev.calls + 1 }));
+    }
+  }, [isOnCall, isConnecting, twilioCallDuration, lastCallDuration]);
 
   const currentLead = leads[currentIndex];
 
@@ -250,25 +355,26 @@ export default function PowerDialerPage() {
       setDialerStats(prev => ({ ...prev, booked: prev.booked + 1 }));
     }
 
+    // Release the lead claim (non-blocking)
+    if (currentLead) {
+      releaseLead(currentLead.id);
+    }
+
     // Reset state
     setShowOutcomePanel(false);
     setLastCallDuration(0);
 
-    // Move to next lead or remove current from list if stage changed
-    if (newStage && newStage !== filterStage) {
-      setLeads(prev => prev.filter(l => l.id !== currentLead?.id));
-    } else {
-      setCurrentIndex(prev => Math.min(prev + 1, leads.length - 1));
-    }
+    // Move to next lead (real-time listener will handle removal if stage changed)
+    setCurrentIndex(prev => Math.min(prev + 1, leads.length - 1));
   };
 
   const handleEmailOutcomeComplete = (outcome: InteractionOutcome, newStage?: PipelineStage) => {
     setShowEmailOutcome(false);
     setDialerStats(prev => ({ ...prev, contacted: prev.contacted + 1 }));
 
-    // If stage changed, remove from list
-    if (newStage && newStage !== filterStage) {
-      setLeads(prev => prev.filter(l => l.id !== currentLead?.id));
+    // Release the lead claim (non-blocking)
+    if (currentLead) {
+      releaseLead(currentLead.id);
     }
   };
 
@@ -286,27 +392,68 @@ export default function PowerDialerPage() {
       setDialerStats(prev => ({ ...prev, booked: prev.booked + 1 }));
     }
 
+    // Release the lead claim (non-blocking)
+    if (currentLead) {
+      releaseLead(currentLead.id);
+    }
+
     setShowManualOutcome(false);
 
-    // Move to next lead or remove current from list if stage changed
-    if (newStage && newStage !== filterStage) {
-      setLeads(prev => prev.filter(l => l.id !== currentLead?.id));
-    } else {
-      setCurrentIndex(prev => Math.min(prev + 1, leads.length - 1));
-    }
+    // Move to next lead (real-time listener will handle removal if stage changed)
+    setCurrentIndex(prev => Math.min(prev + 1, leads.length - 1));
   };
 
   const skipLead = () => {
+    // Release current lead (non-blocking) before moving to next
+    if (currentLead) {
+      releaseLead(currentLead.id);
+    }
     setCurrentIndex(prev => Math.min(prev + 1, leads.length - 1));
   };
 
   const previousLead = () => {
+    // Release current lead (non-blocking) before moving to previous
+    if (currentLead) {
+      releaseLead(currentLead.id);
+    }
     setCurrentIndex(prev => Math.max(prev - 1, 0));
+  };
+
+  // Get available scripts for current lead type
+  const getAvailableScripts = () => {
+    if (!currentLead) return [];
+    return customScripts.filter(s => s.leadType === currentLead.leadType);
   };
 
   const getScript = () => {
     if (!currentLead) return '';
-    let script = CALL_SCRIPTS[currentLead.leadType] || CALL_SCRIPTS.cold_call;
+
+    let script = '';
+
+    // Check if a specific script is selected
+    if (selectedScriptId) {
+      const selectedScript = customScripts.find(s => s.id === selectedScriptId);
+      if (selectedScript) {
+        script = selectedScript.content;
+      }
+    }
+
+    // If no script selected, try to find a default custom script for this lead type
+    if (!script) {
+      const defaultScript = customScripts.find(
+        s => s.leadType === currentLead.leadType && s.isDefault
+      );
+      if (defaultScript) {
+        script = defaultScript.content;
+      }
+    }
+
+    // Fall back to built-in default scripts
+    if (!script) {
+      script = DEFAULT_CALL_SCRIPTS[currentLead.leadType] || DEFAULT_CALL_SCRIPTS.cold_call;
+    }
+
+    // Replace placeholders
     script = script.replace(/\[CONTACT NAME\]/g, currentLead.contactName);
     script = script.replace(/\[YOUR NAME\]/g, userProfile?.firstName || 'there');
     return script;
@@ -810,9 +957,48 @@ export default function PowerDialerPage() {
                     {showScript ? 'Hide' : 'Show'}
                   </button>
                 </div>
+
+                {/* Script Selector */}
+                {showScript && getAvailableScripts().length > 0 && (
+                  <div className="mb-4">
+                    <select
+                      value={selectedScriptId || ''}
+                      onChange={(e) => setSelectedScriptId(e.target.value || null)}
+                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm"
+                    >
+                      <option value="">
+                        {customScripts.find(s => s.leadType === currentLead?.leadType && s.isDefault)
+                          ? 'Default Script'
+                          : 'Built-in Script'}
+                      </option>
+                      {getAvailableScripts().map(script => (
+                        <option key={script.id} value={script.id}>
+                          {script.name} {script.isDefault ? '(Default)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 {showScript && (
-                  <div className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed max-h-[60vh] overflow-y-auto">
+                  <pre className="text-sm text-gray-300 leading-relaxed max-h-[60vh] overflow-y-auto font-sans whitespace-pre-wrap break-words">
                     {getScript()}
+                  </pre>
+                )}
+
+                {/* Link to manage scripts */}
+                {showScript && (
+                  <div className="mt-4 pt-4 border-t border-gray-700">
+                    <Link
+                      href="/admin/sales/settings"
+                      className="text-xs text-gray-500 hover:text-gray-400 flex items-center gap-1"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      Manage Scripts
+                    </Link>
                   </div>
                 )}
               </div>

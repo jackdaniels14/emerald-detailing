@@ -54,6 +54,10 @@ export interface SalesLead {
   source?: string;              // How we found them (CSV import, referral, etc.)
   notes?: string;
 
+  // Dialer claim (for multi-user sync)
+  dialerClaimedBy?: string;     // User ID who has this lead in their dialer
+  dialerClaimedAt?: Date;       // When the claim was made (expires after 5 min)
+
   // For affiliates/sales reps
   commissionRate?: number;      // Percentage for referral partners
 
@@ -202,4 +206,23 @@ export interface LeadOrganization {
 
   // Status
   isActive: boolean;
+}
+
+// =========================================================================
+// CALL SCRIPTS
+// =========================================================================
+
+/**
+ * Call Script
+ * Used for sales call scripts in the power dialer
+ */
+export interface CallScript {
+  id: string;
+  name: string;
+  leadType: LeadType;           // Which lead type this script is for
+  content: string;              // The script content
+  isDefault: boolean;           // Whether this is the default script for the lead type
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy?: string;           // User ID who created it
 }

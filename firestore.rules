@@ -76,8 +76,18 @@ service cloud.firestore {
     // Clients collection
     match /clients/{clientId} {
       allow read: if canManageClients();
-      allow create: if isAuthenticated();
+      // Allow public client creation for booking form
+      allow create: if true;
       allow update: if canManageClients();
+      allow delete: if isAdmin();
+    }
+
+    // Vehicles collection
+    match /vehicles/{vehicleId} {
+      allow read: if isStaff();
+      // Allow public vehicle creation for booking form
+      allow create: if true;
+      allow update: if isStaff();
       allow delete: if isAdmin();
     }
 
@@ -101,7 +111,8 @@ service cloud.firestore {
     // Bookings collection
     match /bookings/{bookingId} {
       allow read: if isStaff();
-      allow create: if isAuthenticated();
+      // Allow public booking creation from website
+      allow create: if true;
       allow update: if isStaff();
       allow delete: if isAdmin();
     }
@@ -297,6 +308,83 @@ service cloud.firestore {
       allow read: if isSalesRep();
       allow create: if isSalesRep();
       allow update: if isSalesRep();
+      allow delete: if isAdmin();
+    }
+
+    // Call Scripts collection (sales_rep can read, admin can write)
+    match /callScripts/{scriptId} {
+      allow read: if isSalesRep();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // AFFILIATE PROGRAM COLLECTIONS
+    // =========================================================================
+
+    // Helper function to check if user is an affiliate
+    function isAffiliate() {
+      return isAuthenticated() && getUserRole() == 'affiliate';
+    }
+
+    // Helper function to check if user owns this affiliate record
+    function isAffiliateOwner(affiliateId) {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/affiliates/$(affiliateId)).data.userId == request.auth.uid;
+    }
+
+    // Affiliates collection
+    match /affiliates/{affiliateId} {
+      // Authenticated users can read (needed for referral code checking during signup)
+      // Admins can read all details, affiliates can see their own full record
+      allow read: if isAuthenticated();
+      // Authenticated users can create applications (pending status, own userId)
+      allow create: if isAuthenticated() &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.userId == request.auth.uid;
+      // Only admins can update (approve/suspend/modify rates)
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Referrals collection
+    match /referrals/{referralId} {
+      // Admins can read all, affiliates can read referrals linked to their affiliate record
+      allow read: if isAdmin() ||
+        (isAuthenticated() &&
+          exists(/databases/$(database)/documents/affiliates/$(resource.data.affiliateId)) &&
+          get(/databases/$(database)/documents/affiliates/$(resource.data.affiliateId)).data.userId == request.auth.uid);
+      // Allow public creation for booking form referral tracking
+      allow create: if true;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Affiliate Commissions collection
+    match /affiliateCommissions/{commissionId} {
+      // Admins can read all, affiliates can read their own commissions
+      allow read: if isAdmin() ||
+        (isAuthenticated() &&
+          exists(/databases/$(database)/documents/affiliates/$(resource.data.affiliateId)) &&
+          get(/databases/$(database)/documents/affiliates/$(resource.data.affiliateId)).data.userId == request.auth.uid);
+      // Staff creates commissions (via booking completion)
+      allow create: if isStaff();
+      // Only admins can update (mark as paid)
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Affiliate Payouts collection
+    match /affiliatePayouts/{payoutId} {
+      // Admins can read all, affiliates can read their own payouts
+      allow read: if isAdmin() ||
+        (isAuthenticated() &&
+          exists(/databases/$(database)/documents/affiliates/$(resource.data.affiliateId)) &&
+          get(/databases/$(database)/documents/affiliates/$(resource.data.affiliateId)).data.userId == request.auth.uid);
+      // Only admins can create/manage payouts
+      allow create: if isAdmin();
+      allow update: if isAdmin();
       allow delete: if isAdmin();
     }
   }
