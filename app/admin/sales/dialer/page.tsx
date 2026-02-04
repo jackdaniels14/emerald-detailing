@@ -157,8 +157,8 @@ export default function PowerDialerPage() {
   // Call tracking
   const [callStartTime, setCallStartTime] = useState<Date | null>(null);
 
-  // Claim timeout in milliseconds (5 minutes)
-  const CLAIM_TIMEOUT_MS = 5 * 60 * 1000;
+  // Claim timeout in milliseconds (1 minute - quick release for better team flow)
+  const CLAIM_TIMEOUT_MS = 60 * 1000;
 
   // Load custom scripts from Firestore
   useEffect(() => {
@@ -303,7 +303,7 @@ export default function PowerDialerPage() {
 
     const interval = setInterval(() => {
       claimLead(lead.id);
-    }, 2 * 60 * 1000); // Refresh every 2 minutes
+    }, 30 * 1000); // Refresh every 30 seconds
 
     return () => clearInterval(interval);
   }, [currentIndex, leads, userProfile?.uid]);

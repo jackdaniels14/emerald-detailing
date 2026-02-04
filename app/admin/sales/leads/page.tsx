@@ -88,6 +88,10 @@ export default function LeadsPage() {
     customLeadType: '',
     vehicleCount: '',
     estimatedRevenue: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
     notes: '',
   });
 
@@ -211,6 +215,10 @@ export default function LeadsPage() {
       customLeadType: '',
       vehicleCount: '',
       estimatedRevenue: '',
+      address: '',
+      city: '',
+      state: '',
+      zipCode: '',
       notes: '',
     });
     setError('');
@@ -234,6 +242,10 @@ export default function LeadsPage() {
         stage: 'new',
         vehicleCount: vehicleCount,
         estimatedRevenue: parseFloat(formData.estimatedRevenue) || 0,
+        address: formData.address || undefined,
+        city: formData.city || undefined,
+        state: formData.state || undefined,
+        zipCode: formData.zipCode || undefined,
         notes: formData.notes,
         source: 'manual',
         isActive: true,
@@ -723,6 +735,47 @@ export default function LeadsPage() {
                         className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                       />
                     </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                  <input
+                    type="text"
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    placeholder="Street address"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                    <input
+                      type="text"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                    <input
+                      type="text"
+                      value={formData.state}
+                      onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Zip</label>
+                    <input
+                      type="text"
+                      value={formData.zipCode}
+                      onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
                   </div>
                 </div>
 
