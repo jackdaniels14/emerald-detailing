@@ -229,6 +229,31 @@ export default function LeadsPage() {
     setSaving(true);
     setError('');
 
+    // Validation
+    if (!formData.companyName.trim()) {
+      setError('Company name is required');
+      setSaving(false);
+      return;
+    }
+    if (!formData.contactName.trim()) {
+      setError('Contact name is required');
+      setSaving(false);
+      return;
+    }
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      setError('Please enter a valid email address');
+      setSaving(false);
+      return;
+    }
+    if (formData.phone) {
+      const phoneDigits = formData.phone.replace(/\D/g, '');
+      if (phoneDigits.length < 10) {
+        setError('Please enter a valid phone number (at least 10 digits)');
+        setSaving(false);
+        return;
+      }
+    }
+
     try {
       const vehicleCount = parseInt(formData.vehicleCount) || 0;
       const newLead: Omit<SalesLead, 'id'> = {

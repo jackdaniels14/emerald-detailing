@@ -40,6 +40,11 @@ export default function Footer() {
                   Book Now
                 </Link>
               </li>
+              <li>
+                <Link href="/affiliate" className="text-gray-400 hover:text-emerald-400 transition-colors">
+                  Affiliate Program
+                </Link>
+              </li>
             </ul>
           </div>
 

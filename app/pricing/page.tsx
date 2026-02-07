@@ -37,7 +37,7 @@ export default function PricingPage() {
       <section className="relative bg-gray-900 text-white py-16 md:py-24">
         <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: 'url(/emerald-detailing/images/bmw-headlight.jpg)' }}
+          style={{ backgroundImage: 'url(/images/bmw-headlight-detail.jpg)' }}
         >
           <div className="absolute inset-0 bg-gray-900/85"></div>
         </div>

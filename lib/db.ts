@@ -523,3 +523,42 @@ export async function updateLeadOrganization(id: string, data: Partial<LeadOrgan
 export async function deleteLeadOrganization(id: string): Promise<void> {
   await deleteDoc(doc(db, COLLECTIONS.LEAD_ORGANIZATIONS, id));
 }
+
+// ============ AFFILIATE INTEGRATION ============
+// These functions integrate affiliate tracking with the booking system
+// For full affiliate CRUD operations, see lib/affiliate-db.ts
+
+import { processBookingCommission, attributeClientToAffiliate } from './affiliate-db';
+
+/**
+ * Complete a booking and process affiliate commission if applicable
+ * Call this when a booking status changes to 'completed' and payment is received
+ */
+export async function completeBookingWithAffiliate(
+  bookingId: string,
+  clientId: string,
+  totalPrice: number
+): Promise<{ commissionId: string | null }> {
+  // Process affiliate commission
+  const commissionId = await processBookingCommission(bookingId, clientId, totalPrice);
+  return { commissionId };
+}
+
+/**
+ * Create a client with affiliate attribution
+ * Use this when creating a new client who came via a referral link
+ */
+export async function createClientWithReferral(
+  data: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>,
+  referralCode?: string
+): Promise<string> {
+  // Create the client
+  const clientId = await createClient(data);
+
+  // If there's a referral code, attribute the client to the affiliate
+  if (referralCode) {
+    await attributeClientToAffiliate(clientId, referralCode);
+  }
+
+  return clientId;
+}

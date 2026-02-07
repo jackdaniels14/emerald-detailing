@@ -313,6 +313,15 @@ export default function PowerDialerPage() {
     setSelectedScriptId(null);
   }, [currentIndex]);
 
+  // Keep currentIndex bounded when leads array changes
+  useEffect(() => {
+    if (leads.length === 0) {
+      setCurrentIndex(0);
+    } else if (currentIndex >= leads.length) {
+      setCurrentIndex(leads.length - 1);
+    }
+  }, [leads.length, currentIndex]);
+
   // Show outcome panel when call ends
   useEffect(() => {
     if (!isOnCall && !isConnecting && lastCallDuration === 0 && twilioCallDuration > 0) {
@@ -398,13 +407,14 @@ export default function PowerDialerPage() {
       releaseLead(leadToLog.id);
     }
 
-    // Reset state
+    // Reset state and close modal
     setShowOutcomePanel(false);
     setLastCallDuration(0);
     setCallStartTime(null);
 
-    // Move to next lead (real-time listener will handle removal if stage changed)
-    setCurrentIndex(prev => Math.min(prev + 1, leads.length - 1));
+    // Don't manually increment index - the real-time listener will remove the lead
+    // from the array when its stage changes, and the next lead will slide into place.
+    // The useEffect for bounds checking will handle edge cases.
   };
 
   const handleEmailOutcomeComplete = (outcome: InteractionOutcome, newStage?: PipelineStage) => {
@@ -443,8 +453,8 @@ export default function PowerDialerPage() {
 
     setShowManualOutcome(false);
 
-    // Move to next lead (real-time listener will handle removal if stage changed)
-    setCurrentIndex(prev => Math.min(prev + 1, leads.length - 1));
+    // Don't manually increment index - the real-time listener will remove the lead
+    // from the array when its stage changes, and the next lead will slide into place.
   };
 
   const skipLead = () => {
@@ -1064,14 +1074,15 @@ export default function PowerDialerPage() {
         />
       )}
 
-      {/* Call Outcome Modal */}
-      {currentLead && (
+      {/* Call Outcome Modal - key forces fresh state for each lead */}
+      {currentLead && showOutcomePanel && (
         <InteractionOutcomeModal
-          isOpen={showOutcomePanel}
+          key={`call-${currentLead.id}`}
+          isOpen={true}
           onClose={() => {
             setShowOutcomePanel(false);
             setLastCallDuration(0);
-            setCurrentIndex(prev => Math.min(prev + 1, leads.length - 1));
+            setCallStartTime(null);
           }}
           lead={currentLead}
           interactionType="call"
@@ -1081,10 +1092,11 @@ export default function PowerDialerPage() {
         />
       )}
 
-      {/* Email Outcome Modal */}
-      {currentLead && (
+      {/* Email Outcome Modal - key forces fresh state for each lead */}
+      {currentLead && showEmailOutcome && (
         <InteractionOutcomeModal
-          isOpen={showEmailOutcome}
+          key={`email-${currentLead.id}`}
+          isOpen={true}
           onClose={() => setShowEmailOutcome(false)}
           lead={currentLead}
           interactionType="email"
@@ -1093,10 +1105,11 @@ export default function PowerDialerPage() {
         />
       )}
 
-      {/* Manual Interaction Outcome Modal */}
-      {currentLead && (
+      {/* Manual Interaction Outcome Modal - key forces fresh state for each lead */}
+      {currentLead && showManualOutcome && (
         <InteractionOutcomeModal
-          isOpen={showManualOutcome}
+          key={`manual-${currentLead.id}-${manualInteractionType}`}
+          isOpen={true}
           onClose={() => setShowManualOutcome(false)}
           lead={currentLead}
           interactionType={manualInteractionType}

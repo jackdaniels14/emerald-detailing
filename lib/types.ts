@@ -13,6 +13,8 @@ export interface Client {
   creditCardLast4?: string;
   subscriptionStatus?: 'none' | 'monthly' | 'biweekly' | 'weekly';
   subscriptionStartDate?: Date;
+  affiliateId?: string;        // Which affiliate referred them
+  referralCode?: string;       // Code used at signup
   createdAt: Date;
   updatedAt: Date;
 }
@@ -125,6 +127,10 @@ export interface Booking {
   // Photos
   beforePhotos?: string[];
   afterPhotos?: string[];
+
+  // Affiliate tracking
+  affiliateId?: string;           // For commission calculation
+  affiliateCommissionId?: string; // Link to commission record
 
   createdAt: Date;
   updatedAt: Date;

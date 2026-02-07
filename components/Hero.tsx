@@ -6,7 +6,7 @@ export default function Hero() {
       {/* Background Image */}
       <div
         className="absolute inset-0 bg-cover bg-center"
-        style={{ backgroundImage: 'url(/emerald-detailing/images/infiniti-g37.jpg)' }}
+        style={{ backgroundImage: 'url(/images/infiniti-parking.jpg)' }}
       >
         <div className="absolute inset-0 bg-gradient-to-br from-gray-900/90 via-gray-800/80 to-emerald-900/70"></div>
       </div>

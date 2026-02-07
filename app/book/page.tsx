@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import BookingForm from '@/components/BookingForm';
 import PublicLayout from '@/components/PublicLayout';
 
@@ -6,6 +7,19 @@ export const metadata = {
   description: 'Schedule your mobile car detailing appointment. We come to you!',
 };
 
+function BookingFormLoader() {
+  return (
+    <div className="animate-pulse space-y-6">
+      <div className="h-10 bg-gray-200 rounded w-1/3"></div>
+      <div className="space-y-4">
+        <div className="h-10 bg-gray-200 rounded"></div>
+        <div className="h-10 bg-gray-200 rounded"></div>
+        <div className="h-10 bg-gray-200 rounded"></div>
+      </div>
+    </div>
+  );
+}
+
 export default function BookPage() {
   return (
     <PublicLayout>
@@ -13,7 +27,7 @@ export default function BookPage() {
       <section className="relative bg-gray-900 text-white py-16 md:py-24">
         <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: 'url(/emerald-detailing/images/classic-car-hood.jpg)' }}
+          style={{ backgroundImage: 'url(/images/shiny-hood-reflection.jpg)' }}
         >
           <div className="absolute inset-0 bg-gray-900/85"></div>
         </div>
@@ -32,7 +46,9 @@ export default function BookPage() {
       <section className="py-16 md:py-24 bg-gray-50">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
-            <BookingForm />
+            <Suspense fallback={<BookingFormLoader />}>
+              <BookingForm />
+            </Suspense>
           </div>
 
           {/* Alternative Contact */}

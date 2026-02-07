@@ -20,9 +20,9 @@ export default function ContactForm() {
     const FORMSPREE_ID = 'YOUR_FORMSPREE_ID';
 
     if (FORMSPREE_ID === 'YOUR_FORMSPREE_ID') {
-      // Formspree not configured yet - show contact info instead
+      // Formspree not configured yet - show contact info in a friendly way
       setIsSubmitting(false);
-      setError('Contact form coming soon! Please call or text us at (206) 606-3575 or email emeralddetailer@gmail.com directly.');
+      setIsSubmitted(true); // Show success-like state with contact info
       return;
     }
 
@@ -54,7 +54,7 @@ export default function ContactForm() {
       <section className="relative bg-gray-900 text-white py-16 md:py-24">
         <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: 'url(/emerald-detailing/images/interior-detailing-console.jpg)' }}
+          style={{ backgroundImage: 'url(/images/interior-detail-brush.jpg)' }}
         >
           <div className="absolute inset-0 bg-gray-900/85"></div>
         </div>
@@ -175,15 +175,23 @@ export default function ContactForm() {
                         d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                       />
                     </svg>
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">Message Sent!</h3>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">Thanks for reaching out!</h3>
                     <p className="text-gray-600 mb-4">
-                      Thank you for reaching out. We&apos;ll get back to you soon!
+                      Please contact us directly and we&apos;ll get back to you right away:
                     </p>
+                    <div className="space-y-2 mb-4">
+                      <a href="tel:+12066063575" className="block text-emerald-600 hover:text-emerald-700 font-semibold">
+                        Call/Text: (206) 606-3575
+                      </a>
+                      <a href="mailto:emeralddetailer@gmail.com" className="block text-emerald-600 hover:text-emerald-700 font-semibold">
+                        Email: emeralddetailer@gmail.com
+                      </a>
+                    </div>
                     <button
                       onClick={() => setIsSubmitted(false)}
-                      className="text-emerald-600 hover:text-emerald-700 font-semibold"
+                      className="text-gray-500 hover:text-gray-700 text-sm"
                     >
-                      Send Another Message
+                      Go Back
                     </button>
                   </div>
                 ) : (

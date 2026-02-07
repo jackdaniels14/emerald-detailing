@@ -77,7 +77,7 @@ export default function ServicesPage() {
       <section className="relative bg-gray-900 text-white py-16 md:py-24">
         <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: 'url(/emerald-detailing/images/car-wash-soap.jpg)' }}
+          style={{ backgroundImage: 'url(/images/soap-black-car.jpg)' }}
         >
           <div className="absolute inset-0 bg-gray-900/80"></div>
         </div>

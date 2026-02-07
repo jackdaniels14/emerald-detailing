@@ -34,7 +34,6 @@ interface OutcomeConfig {
 }
 
 const OUTCOME_CONFIG: Record<InteractionOutcome, OutcomeConfig> = {
-  // Call outcomes
   no_answer: {
     label: 'No Answer',
     icon: '📵',
@@ -71,8 +70,6 @@ const OUTCOME_CONFIG: Record<InteractionOutcome, OutcomeConfig> = {
     description: 'Invalid contact info',
     showForTypes: ['call'],
   },
-
-  // Positive outcomes (all types)
   interested: {
     label: 'Interested!',
     icon: '🔥',
@@ -109,8 +106,6 @@ const OUTCOME_CONFIG: Record<InteractionOutcome, OutcomeConfig> = {
     description: 'Closed the deal!',
     showForTypes: ['call', 'email', 'meeting', 'other'],
   },
-
-  // Negative outcomes (all types)
   not_interested: {
     label: 'Not Interested',
     icon: '👎',
@@ -129,8 +124,6 @@ const OUTCOME_CONFIG: Record<InteractionOutcome, OutcomeConfig> = {
     description: 'Asked not to be contacted',
     showForTypes: ['call', 'email', 'meeting', 'other'],
   },
-
-  // Neutral / Follow-up
   follow_up_needed: {
     label: 'Follow Up Needed',
     icon: '📌',
@@ -140,8 +133,6 @@ const OUTCOME_CONFIG: Record<InteractionOutcome, OutcomeConfig> = {
     description: 'Need to follow up later',
     showForTypes: ['call', 'email', 'meeting', 'other'],
   },
-
-  // Email specific
   email_sent: {
     label: 'Email Sent',
     icon: '✉️',
@@ -176,7 +167,7 @@ interface Props {
   onClose: () => void;
   lead: SalesLead;
   interactionType: InteractionType;
-  duration?: number; // For calls, in seconds
+  duration?: number;
   userId: string;
   onComplete?: (outcome: InteractionOutcome, newStage?: PipelineStage) => void;
 }
@@ -193,7 +184,6 @@ export default function InteractionOutcomeModal({
   const [notes, setNotes] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [saving, setSaving] = useState(false);
-  const [selectedOutcome, setSelectedOutcome] = useState<InteractionOutcome | null>(null);
 
   if (!isOpen) return null;
 
@@ -207,7 +197,6 @@ export default function InteractionOutcomeModal({
     ([_, config]) => config.showForTypes.includes(interactionType)
   );
 
-  // Group outcomes for better UX
   const positiveOutcomes = availableOutcomes.filter(([key]) =>
     ['interested', 'meeting_booked', 'proposal_sent', 'sale_made', 'email_replied', 'email_opened'].includes(key)
   );
@@ -219,8 +208,9 @@ export default function InteractionOutcomeModal({
   );
 
   const handleOutcome = async (outcome: InteractionOutcome) => {
+    if (saving) return; // Prevent double-clicks
+
     setSaving(true);
-    setSelectedOutcome(outcome);
 
     try {
       const outcomeConfig = OUTCOME_CONFIG[outcome];
@@ -229,12 +219,10 @@ export default function InteractionOutcomeModal({
         updatedAt: Timestamp.now(),
       };
 
-      // Update stage if outcome specifies one
       if (outcomeConfig.nextStage) {
         updates.stage = outcomeConfig.nextStage;
       }
 
-      // Set follow-up if provided
       if (followUpDate) {
         updates.nextFollowUpAt = Timestamp.fromDate(new Date(followUpDate));
       }
@@ -256,22 +244,17 @@ export default function InteractionOutcomeModal({
         scheduledFor: followUpDate ? Timestamp.fromDate(new Date(followUpDate)) : null,
       });
 
-      // Callback to parent
+      // Call the parent's onComplete callback
       if (onComplete) {
         onComplete(outcome, outcomeConfig.nextStage);
       }
 
-      // Reset and close
-      setNotes('');
-      setFollowUpDate('');
-      setSelectedOutcome(null);
-      onClose();
-
     } catch (error) {
       console.error('Error saving outcome:', error);
-    } finally {
+      // Reset saving state on error so user can try again
       setSaving(false);
     }
+    // Note: We don't reset saving to false on success because the modal will unmount
   };
 
   const getInteractionTitle = () => {
@@ -295,7 +278,7 @@ export default function InteractionOutcomeModal({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20">
-        <div className="fixed inset-0 bg-black bg-opacity-60 transition-opacity" />
+        <div className="fixed inset-0 bg-black bg-opacity-60 transition-opacity" onClick={onClose} />
 
         <div className="relative bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full mx-auto p-6 text-white">
           {/* Header */}
@@ -312,6 +295,16 @@ export default function InteractionOutcomeModal({
             )}
           </div>
 
+          {/* Saving overlay */}
+          {saving && (
+            <div className="absolute inset-0 bg-gray-800/80 rounded-2xl flex items-center justify-center z-10">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-10 w-10 border-4 border-emerald-500 border-t-transparent mx-auto mb-3"></div>
+                <p className="text-gray-300">Saving...</p>
+              </div>
+            </div>
+          )}
+
           {/* Positive Outcomes */}
           {positiveOutcomes.length > 0 && (
             <div className="mb-4">
@@ -322,9 +315,7 @@ export default function InteractionOutcomeModal({
                     key={key}
                     onClick={() => handleOutcome(key as InteractionOutcome)}
                     disabled={saving}
-                    className={`p-3 rounded-xl ${config.bgColor} ${config.color} hover:opacity-90 hover:scale-105 transition-all disabled:opacity-50 text-center ${
-                      selectedOutcome === key ? 'ring-2 ring-white' : ''
-                    }`}
+                    className={`p-3 rounded-xl ${config.bgColor} ${config.color} hover:opacity-90 hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-center`}
                   >
                     <span className="text-xl block mb-1">{config.icon}</span>
                     <span className="text-xs font-medium block">{config.label}</span>
@@ -344,9 +335,7 @@ export default function InteractionOutcomeModal({
                     key={key}
                     onClick={() => handleOutcome(key as InteractionOutcome)}
                     disabled={saving}
-                    className={`p-3 rounded-xl ${config.bgColor} ${config.color} hover:opacity-90 hover:scale-105 transition-all disabled:opacity-50 text-center ${
-                      selectedOutcome === key ? 'ring-2 ring-white' : ''
-                    }`}
+                    className={`p-3 rounded-xl ${config.bgColor} ${config.color} hover:opacity-90 hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-center`}
                   >
                     <span className="text-xl block mb-1">{config.icon}</span>
                     <span className="text-xs font-medium block">{config.label}</span>
@@ -366,9 +355,7 @@ export default function InteractionOutcomeModal({
                     key={key}
                     onClick={() => handleOutcome(key as InteractionOutcome)}
                     disabled={saving}
-                    className={`p-3 rounded-xl ${config.bgColor} ${config.color} hover:opacity-90 hover:scale-105 transition-all disabled:opacity-50 text-center ${
-                      selectedOutcome === key ? 'ring-2 ring-white' : ''
-                    }`}
+                    className={`p-3 rounded-xl ${config.bgColor} ${config.color} hover:opacity-90 hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-center`}
                   >
                     <span className="text-xl block mb-1">{config.icon}</span>
                     <span className="text-xs font-medium block">{config.label}</span>
@@ -387,7 +374,8 @@ export default function InteractionOutcomeModal({
                   type="datetime-local"
                   value={followUpDate}
                   onChange={(e) => setFollowUpDate(e.target.value)}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm"
+                  disabled={saving}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm disabled:opacity-50"
                 />
               </div>
               <div>
@@ -397,7 +385,8 @@ export default function InteractionOutcomeModal({
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Quick note..."
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm"
+                  disabled={saving}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm disabled:opacity-50"
                 />
               </div>
             </div>
@@ -414,7 +403,8 @@ export default function InteractionOutcomeModal({
           <div className="mt-4 text-center">
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-white text-sm"
+              disabled={saving}
+              className="text-gray-400 hover:text-white text-sm disabled:opacity-50"
             >
               Skip for now
             </button>

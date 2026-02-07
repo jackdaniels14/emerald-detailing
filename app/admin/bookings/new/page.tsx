@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { collection, getDocs, addDoc, query, orderBy, Timestamp, updateDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, query, orderBy, Timestamp, updateDoc, doc, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Client, Employee, Vehicle } from '@/lib/types';
 import { notifyBookingAssigned } from '@/lib/notifications';
@@ -91,6 +91,10 @@ export default function NewBookingPage() {
   const [useCustomPrice, setUseCustomPrice] = useState(false);
   const [customPrice, setCustomPrice] = useState('');
 
+  // Conflict detection
+  const [existingBookings, setExistingBookings] = useState<any[]>([]);
+  const [conflictWarning, setConflictWarning] = useState<string | null>(null);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -128,6 +132,79 @@ export default function NewBookingPage() {
 
     fetchData();
   }, [preselectedClientId]);
+
+  // Check for schedule conflicts when date/time/employee changes
+  useEffect(() => {
+    const checkConflicts = async () => {
+      if (!scheduledDate) {
+        setConflictWarning(null);
+        return;
+      }
+
+      try {
+        // Fetch all bookings for the selected date
+        const bookingsRef = collection(db, 'bookings');
+        const bookingsSnap = await getDocs(bookingsRef);
+        const allBookings = bookingsSnap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        // Filter to same date
+        const selectedDateStr = new Date(scheduledDate).toDateString();
+        const sameDayBookings = allBookings.filter((booking: any) => {
+          if (booking.status === 'cancelled') return false;
+          const bookingDate = booking.scheduledDate?.seconds
+            ? new Date(booking.scheduledDate.seconds * 1000)
+            : new Date(booking.scheduledDate);
+          return bookingDate.toDateString() === selectedDateStr;
+        });
+
+        setExistingBookings(sameDayBookings);
+
+        // Check for conflicts with selected employee
+        if (assignedEmployee && scheduledTime) {
+          const selectedHour = parseInt(scheduledTime);
+          const estimatedDuration = serviceTier === 'premium' ? 3 : 1.5;
+          const selectedEndHour = selectedHour + (estimatedDuration * selectedVehicles.length);
+
+          const conflicts = sameDayBookings.filter((booking: any) => {
+            if (booking.employeeId !== assignedEmployee) return false;
+
+            const bookingHour = parseInt(booking.scheduledTime);
+            const bookingDuration = (booking.estimatedDuration || 120) / 60;
+            const bookingEndHour = bookingHour + bookingDuration;
+
+            // Check for overlap
+            return (
+              (selectedHour >= bookingHour && selectedHour < bookingEndHour) ||
+              (selectedEndHour > bookingHour && selectedEndHour <= bookingEndHour) ||
+              (selectedHour <= bookingHour && selectedEndHour >= bookingEndHour)
+            );
+          });
+
+          if (conflicts.length > 0) {
+            const emp = employees.find(e => e.id === assignedEmployee);
+            const conflictTimes = conflicts.map((c: any) => {
+              const h = parseInt(c.scheduledTime);
+              return h > 12 ? `${h - 12}:00 PM` : h === 12 ? '12:00 PM' : `${h}:00 AM`;
+            }).join(', ');
+            setConflictWarning(
+              `${emp?.firstName || 'Employee'} already has ${conflicts.length} booking(s) at ${conflictTimes} on this date. Consider a different time or employee.`
+            );
+          } else {
+            setConflictWarning(null);
+          }
+        } else {
+          setConflictWarning(null);
+        }
+      } catch (err) {
+        console.error('Error checking conflicts:', err);
+      }
+    };
+
+    checkConflicts();
+  }, [scheduledDate, scheduledTime, assignedEmployee, serviceTier, selectedVehicles.length, employees]);
 
   const getVehiclePricingCategory = (vehicleType: string | undefined): keyof typeof PRICING => {
     if (!vehicleType) return 'sedan';
@@ -689,6 +766,46 @@ export default function NewBookingPage() {
                   </select>
                 </div>
               </div>
+
+              {/* Conflict Warning */}
+              {conflictWarning && (
+                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div>
+                      <p className="font-medium text-yellow-800">Schedule Conflict Detected</p>
+                      <p className="text-sm text-yellow-700 mt-1">{conflictWarning}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Existing bookings for the day */}
+              {scheduledDate && existingBookings.length > 0 && (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-sm font-medium text-gray-700 mb-2">
+                    {existingBookings.length} existing booking(s) on this date:
+                  </p>
+                  <div className="space-y-1">
+                    {existingBookings.slice(0, 5).map((booking: any, idx: number) => {
+                      const emp = employees.find(e => e.id === booking.employeeId);
+                      const h = parseInt(booking.scheduledTime);
+                      const timeStr = h > 12 ? `${h - 12}:00 PM` : h === 12 ? '12:00 PM' : `${h}:00 AM`;
+                      return (
+                        <p key={idx} className="text-xs text-gray-600">
+                          {timeStr} - {emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned'}
+                          <span className="text-gray-400"> ({booking.serviceType})</span>
+                        </p>
+                      );
+                    })}
+                    {existingBookings.length > 5 && (
+                      <p className="text-xs text-gray-400">+{existingBookings.length - 5} more</p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Assign Employee</label>

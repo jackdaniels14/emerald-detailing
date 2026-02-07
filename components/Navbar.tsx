@@ -35,6 +35,12 @@ export default function Navbar() {
               </Link>
             ))}
             <Link
+              href="/affiliate"
+              className="text-gray-300 hover:text-emerald-400 transition-colors duration-200"
+            >
+              Affiliates
+            </Link>
+            <Link
               href="/login"
               className="text-gray-300 hover:text-emerald-400 transition-colors duration-200"
             >
@@ -85,6 +91,13 @@ export default function Navbar() {
                 {link.label}
               </Link>
             ))}
+            <Link
+              href="/affiliate"
+              className="block py-2 text-gray-300 hover:text-emerald-400 transition-colors duration-200"
+              onClick={() => setIsOpen(false)}
+            >
+              Affiliates
+            </Link>
             <Link
               href="/login"
               className="block py-2 text-gray-300 hover:text-emerald-400 transition-colors duration-200"

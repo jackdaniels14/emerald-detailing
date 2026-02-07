@@ -32,9 +32,10 @@ import { auth, db } from './firebase';
  * - office_desk: Access to POS, payroll, analytics, and client management
  * - sales_rep: Access to bookings, clients, and scheduling
  * - detailing_tech: Access to assigned jobs, timeclock, and personal schedule
+ * - affiliate: Access to affiliate dashboard and earnings
  * - client: Customer-facing portal (future feature)
  */
-export type UserRole = 'admin' | 'office_desk' | 'sales_rep' | 'detailing_tech' | 'client';
+export type UserRole = 'admin' | 'office_desk' | 'sales_rep' | 'detailing_tech' | 'affiliate' | 'client';
 
 /**
  * User profile stored in Firestore /users collection
@@ -79,10 +80,11 @@ interface AuthContextType {
  */
 export const ROLE_HIERARCHY: Record<UserRole, number> = {
   client: 0,
-  detailing_tech: 1,
-  sales_rep: 2,
-  office_desk: 3,
-  admin: 4,
+  affiliate: 1,
+  detailing_tech: 2,
+  sales_rep: 3,
+  office_desk: 4,
+  admin: 5,
 };
 
 /**
@@ -108,6 +110,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     '/admin/settings',
     '/admin/migrate-roles',
     '/admin/sales',
+    '/admin/affiliates',
   ],
   office_desk: [
     '/admin',
@@ -139,9 +142,17 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     '/admin/my-jobs',
     '/admin/my-profile',
     '/admin/workspace',
+    '/admin/bookings',
+    '/admin/clients',
     '/admin/schedule',
     '/admin/timeclock',
     '/admin/notifications',
+  ],
+  affiliate: [
+    '/affiliate/dashboard',
+    '/affiliate/dashboard/referrals',
+    '/affiliate/dashboard/commissions',
+    '/affiliate/dashboard/payouts',
   ],
   client: [],
 };
@@ -178,6 +189,7 @@ export function getRoleDisplayName(role: UserRole): string {
     office_desk: 'Office Desk',
     sales_rep: 'Sales Rep',
     detailing_tech: 'Detailing Tech',
+    affiliate: 'Affiliate Partner',
     client: 'Client',
   };
   return displayNames[role] || role;

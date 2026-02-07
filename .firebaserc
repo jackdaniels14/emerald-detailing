@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "emerald-7a45f"
-  }
+  },
+  "targets": {
+    "emerald-7a45f": {
+      "hosting": {
+        "emerald": [
+          "emerald-7a45f"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

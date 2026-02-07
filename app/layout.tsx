@@ -2,6 +2,9 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/Providers';
+import GoogleAnalytics from '@/components/GoogleAnalytics';
+import FacebookPixel from '@/components/FacebookPixel';
+import LocalBusinessSchema from '@/components/LocalBusinessSchema';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -43,6 +46,9 @@ export default function RootLayout({
         <meta name="theme-color" content="#10b981" />
       </head>
       <body className={inter.className}>
+        <GoogleAnalytics />
+        <FacebookPixel />
+        <LocalBusinessSchema />
         <Providers>
           {children}
         </Providers>
