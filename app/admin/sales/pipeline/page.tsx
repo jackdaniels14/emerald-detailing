@@ -168,8 +168,11 @@ export default function PipelinePage() {
                             {tierConfig.label}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-500 truncate mb-2">{lead.contactName}</p>
-                        <div className="flex items-center justify-between">
+                        <p className="text-xs text-gray-500 truncate">{lead.contactName}</p>
+                        {lead.organizationName && (
+                          <p className="text-xs text-blue-600 truncate">{lead.organizationName}</p>
+                        )}
+                        <div className="flex items-center justify-between mt-2">
                           <span className={`px-1.5 py-0.5 text-xs font-medium rounded ${typeConfig.bgColor} ${typeConfig.color}`}>
                             {lead.leadType === 'custom' && lead.customLeadType ? lead.customLeadType : typeConfig.label}
                           </span>

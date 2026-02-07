@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { LeadOrganization, LeadType, LEAD_TYPE_CONFIG } from '@/lib/sales-types';
+import { LeadOrganization, SalesLead, LeadType, LEAD_TYPE_CONFIG } from '@/lib/sales-types';
 
 export default function OrganizationsPage() {
   const [organizations, setOrganizations] = useState<LeadOrganization[]>([]);
+  const [allLeads, setAllLeads] = useState<SalesLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingOrg, setEditingOrg] = useState<LeadOrganization | null>(null);
@@ -36,6 +38,7 @@ export default function OrganizationsPage() {
 
   useEffect(() => {
     fetchOrganizations();
+    fetchAllLeads();
   }, []);
 
   async function fetchOrganizations() {
@@ -56,6 +59,24 @@ export default function OrganizationsPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function fetchAllLeads() {
+    try {
+      const leadsRef = collection(db, 'salesLeads');
+      const snapshot = await getDocs(leadsRef);
+      const leadsData = snapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      })) as SalesLead[];
+      setAllLeads(leadsData);
+    } catch (error) {
+      console.error('Error fetching leads:', error);
+    }
+  }
+
+  function getLeadsForOrg(orgId: string) {
+    return allLeads.filter(lead => lead.organizationId === orgId);
   }
 
   const resetForm = () => {
@@ -324,6 +345,33 @@ export default function OrganizationsPage() {
                     <span className="font-medium">Est. Volume:</span> {org.estimatedMonthlyVolume}/mo
                   </p>
                 )}
+
+                {/* Linked Leads */}
+                {(() => {
+                  const orgLeads = getLeadsForOrg(org.id);
+                  if (orgLeads.length === 0) return null;
+                  return (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                        {orgLeads.length} Linked Lead{orgLeads.length !== 1 ? 's' : ''}
+                      </p>
+                      <div className="space-y-1">
+                        {orgLeads.slice(0, 3).map(lead => (
+                          <Link
+                            key={lead.id}
+                            href={`/admin/sales/leads/view?id=${lead.id}`}
+                            className="block text-sm text-blue-600 hover:text-blue-800 hover:underline truncate"
+                          >
+                            {lead.companyName} - {lead.contactName}
+                          </Link>
+                        ))}
+                        {orgLeads.length > 3 && (
+                          <p className="text-xs text-gray-400">+{orgLeads.length - 3} more</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
                   <button

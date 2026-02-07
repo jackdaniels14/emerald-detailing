@@ -49,6 +49,10 @@ export interface SalesLead {
   estimatedRevenue?: number;    // Monthly potential
   currentProvider?: string;     // Who they use now
 
+  // Organization
+  organizationId?: string;      // LeadOrganization doc ID
+  organizationName?: string;    // Denormalized for display
+
   // Sales Process
   assignedTo?: string;          // Employee ID
   source?: string;              // How we found them (CSV import, referral, etc.)

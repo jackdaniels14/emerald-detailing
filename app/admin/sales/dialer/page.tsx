@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useTwilio } from '@/lib/twilio-context';
 import {
   SalesLead,
+  LeadActivity,
   LeadType,
   PipelineStage,
   CallScript,
@@ -16,6 +17,7 @@ import {
   LEAD_TYPE_CONFIG,
   PIPELINE_STAGE_CONFIG,
   TIER_CONFIG,
+  ACTIVITY_TYPE_CONFIG,
 } from '@/lib/sales-types';
 import EmailComposer from '@/components/sales/EmailComposer';
 import InteractionOutcomeModal, { InteractionOutcome } from '@/components/sales/InteractionOutcomeModal';
@@ -137,7 +139,6 @@ export default function PowerDialerPage() {
   const [filterType, setFilterType] = useState<LeadType | 'all'>('all');
   const [filterStage, setFilterStage] = useState<PipelineStage>('new');
   const [dialerStats, setDialerStats] = useState({ calls: 0, contacted: 0, booked: 0 });
-  const [showScript, setShowScript] = useState(true);
   const [showEmailComposer, setShowEmailComposer] = useState(false);
   const [showEmailOutcome, setShowEmailOutcome] = useState(false);
   const [showManualOutcome, setShowManualOutcome] = useState(false);
@@ -153,6 +154,12 @@ export default function PowerDialerPage() {
   // Custom scripts from Firestore
   const [customScripts, setCustomScripts] = useState<CallScript[]>([]);
   const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null);
+
+  // Notes & History tab
+  const [activeTab, setActiveTab] = useState<'script' | 'notes'>('script');
+  const [leadActivities, setLeadActivities] = useState<LeadActivity[]>([]);
+  const [leadNotes, setLeadNotes] = useState('');
+  const [savingNotes, setSavingNotes] = useState(false);
 
   // Call tracking
   const [callStartTime, setCallStartTime] = useState<Date | null>(null);
@@ -178,6 +185,41 @@ export default function PowerDialerPage() {
       setCustomScripts(scriptsData);
     } catch (error) {
       console.error('Error fetching custom scripts:', error);
+    }
+  }
+
+  async function fetchLeadActivities(leadId: string) {
+    try {
+      const activitiesRef = collection(db, 'leadActivities');
+      const q = query(
+        activitiesRef,
+        where('leadId', '==', leadId),
+        orderBy('createdAt', 'desc'),
+        limit(10)
+      );
+      const snapshot = await getDocs(q);
+      const activitiesData = snapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      })) as LeadActivity[];
+      setLeadActivities(activitiesData);
+    } catch (err) {
+      console.error('Error fetching lead activities:', err);
+    }
+  }
+
+  async function saveLeadNotes() {
+    if (!currentLead) return;
+    setSavingNotes(true);
+    try {
+      await updateDoc(doc(db, 'salesLeads', currentLead.id), {
+        notes: leadNotes,
+        updatedAt: serverTimestamp()
+      });
+    } catch (err) {
+      console.error('Error saving notes:', err);
+    } finally {
+      setSavingNotes(false);
     }
   }
 
@@ -308,10 +350,18 @@ export default function PowerDialerPage() {
     return () => clearInterval(interval);
   }, [currentIndex, leads, userProfile?.uid]);
 
-  // Reset selected script when lead changes
+  // Reset selected script and fetch activities when lead changes
   useEffect(() => {
     setSelectedScriptId(null);
-  }, [currentIndex]);
+    const lead = leads[currentIndex];
+    if (lead) {
+      setLeadNotes(lead.notes || '');
+      fetchLeadActivities(lead.id);
+    } else {
+      setLeadActivities([]);
+      setLeadNotes('');
+    }
+  }, [currentIndex, leads]);
 
   // Keep currentIndex bounded when leads array changes
   useEffect(() => {
@@ -338,6 +388,12 @@ export default function PowerDialerPage() {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatActivityDate = (date: any) => {
+    if (!date) return '';
+    const d = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   };
 
   const startCall = async () => {
@@ -999,60 +1055,130 @@ export default function PowerDialerPage() {
               )}
             </div>
 
-            {/* Call Script Panel */}
+            {/* Tabbed Side Panel */}
             <div className="lg:col-span-1">
               <div className="bg-gray-800 rounded-2xl p-6 sticky top-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold">Call Script</h3>
+                {/* Tab Buttons */}
+                <div className="flex gap-1 mb-4 bg-gray-700/50 rounded-lg p-1">
                   <button
-                    onClick={() => setShowScript(!showScript)}
-                    className="text-sm text-gray-400 hover:text-white"
+                    onClick={() => setActiveTab('script')}
+                    className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all ${
+                      activeTab === 'script' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-white'
+                    }`}
                   >
-                    {showScript ? 'Hide' : 'Show'}
+                    Script
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('notes')}
+                    className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all ${
+                      activeTab === 'notes' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Notes & History
                   </button>
                 </div>
 
-                {/* Script Selector */}
-                {showScript && getAvailableScripts().length > 0 && (
-                  <div className="mb-4">
-                    <select
-                      value={selectedScriptId || ''}
-                      onChange={(e) => setSelectedScriptId(e.target.value || null)}
-                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm"
-                    >
-                      <option value="">
-                        {customScripts.find(s => s.leadType === currentLead?.leadType && s.isDefault)
-                          ? 'Default Script'
-                          : 'Built-in Script'}
-                      </option>
-                      {getAvailableScripts().map(script => (
-                        <option key={script.id} value={script.id}>
-                          {script.name} {script.isDefault ? '(Default)' : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                {/* Script Tab */}
+                {activeTab === 'script' && (
+                  <>
+                    {/* Script Selector */}
+                    {getAvailableScripts().length > 0 && (
+                      <div className="mb-4">
+                        <select
+                          value={selectedScriptId || ''}
+                          onChange={(e) => setSelectedScriptId(e.target.value || null)}
+                          className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm"
+                        >
+                          <option value="">
+                            {customScripts.find(s => s.leadType === currentLead?.leadType && s.isDefault)
+                              ? 'Default Script'
+                              : 'Built-in Script'}
+                          </option>
+                          {getAvailableScripts().map(script => (
+                            <option key={script.id} value={script.id}>
+                              {script.name} {script.isDefault ? '(Default)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <pre className="text-sm text-gray-300 leading-relaxed max-h-[60vh] overflow-y-auto font-sans whitespace-pre-wrap break-words">
+                      {getScript()}
+                    </pre>
+
+                    <div className="mt-4 pt-4 border-t border-gray-700">
+                      <Link
+                        href="/admin/sales/settings"
+                        className="text-xs text-gray-500 hover:text-gray-400 flex items-center gap-1"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Manage Scripts
+                      </Link>
+                    </div>
+                  </>
                 )}
 
-                {showScript && (
-                  <pre className="text-sm text-gray-300 leading-relaxed max-h-[60vh] overflow-y-auto font-sans whitespace-pre-wrap break-words">
-                    {getScript()}
-                  </pre>
-                )}
+                {/* Notes & History Tab */}
+                {activeTab === 'notes' && currentLead && (
+                  <div className="space-y-4">
+                    {/* Organization Info */}
+                    {currentLead.organizationName && (
+                      <div className="bg-gray-700/50 rounded-lg p-3">
+                        <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Organization</p>
+                        <p className="text-sm font-medium text-blue-400">{currentLead.organizationName}</p>
+                      </div>
+                    )}
 
-                {/* Link to manage scripts */}
-                {showScript && (
-                  <div className="mt-4 pt-4 border-t border-gray-700">
-                    <Link
-                      href="/admin/sales/settings"
-                      className="text-xs text-gray-500 hover:text-gray-400 flex items-center gap-1"
-                    >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      Manage Scripts
-                    </Link>
+                    {/* Editable Notes */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs text-gray-400 uppercase tracking-wide">Notes</p>
+                        <button
+                          onClick={saveLeadNotes}
+                          disabled={savingNotes}
+                          className="text-xs px-2 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-600 rounded text-white transition-colors"
+                        >
+                          {savingNotes ? 'Saving...' : 'Save'}
+                        </button>
+                      </div>
+                      <textarea
+                        value={leadNotes}
+                        onChange={(e) => setLeadNotes(e.target.value)}
+                        placeholder="Add notes about this lead..."
+                        rows={4}
+                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 resize-none"
+                      />
+                    </div>
+
+                    {/* Recent Activity */}
+                    <div>
+                      <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Recent Activity</p>
+                      {leadActivities.length > 0 ? (
+                        <div className="space-y-2 max-h-[40vh] overflow-y-auto">
+                          {leadActivities.map((activity) => {
+                            const config = ACTIVITY_TYPE_CONFIG[activity.type];
+                            return (
+                              <div key={activity.id} className="bg-gray-700/50 rounded-lg p-3">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-xs font-medium text-gray-300">{config?.label || activity.type}</span>
+                                  <span className="text-xs text-gray-500">{formatActivityDate(activity.createdAt)}</span>
+                                </div>
+                                <p className="text-xs text-gray-400">{activity.description}</p>
+                                {activity.outcome && (
+                                  <p className="text-xs text-gray-500 mt-1">Outcome: {activity.outcome}</p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-500 text-center py-4">No activity yet</p>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1088,6 +1214,7 @@ export default function PowerDialerPage() {
           interactionType="call"
           duration={lastCallDuration}
           userId={userProfile?.uid || 'unknown'}
+          userName={`${userProfile?.firstName || ''} ${userProfile?.lastName || ''}`.trim() || undefined}
           onComplete={handleOutcomeComplete}
         />
       )}
@@ -1101,6 +1228,7 @@ export default function PowerDialerPage() {
           lead={currentLead}
           interactionType="email"
           userId={userProfile?.uid || 'unknown'}
+          userName={`${userProfile?.firstName || ''} ${userProfile?.lastName || ''}`.trim() || undefined}
           onComplete={handleEmailOutcomeComplete}
         />
       )}
@@ -1114,6 +1242,7 @@ export default function PowerDialerPage() {
           lead={currentLead}
           interactionType={manualInteractionType}
           userId={userProfile?.uid || 'unknown'}
+          userName={`${userProfile?.firstName || ''} ${userProfile?.lastName || ''}`.trim() || undefined}
           onComplete={handleManualOutcomeComplete}
         />
       )}

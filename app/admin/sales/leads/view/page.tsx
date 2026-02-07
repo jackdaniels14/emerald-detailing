@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth-context';
 import {
   SalesLead,
   LeadActivity,
+  LeadOrganization,
   LeadType,
   PipelineStage,
   ActivityType,
@@ -18,6 +19,7 @@ import {
   ACTIVITY_TYPE_CONFIG,
   calculateTier,
 } from '@/lib/sales-types';
+import { getActiveLeadOrganizations } from '@/lib/db';
 import EmailComposer from '@/components/sales/EmailComposer';
 
 export default function LeadDetailPage() {
@@ -28,6 +30,7 @@ export default function LeadDetailPage() {
 
   const [lead, setLead] = useState<SalesLead | null>(null);
   const [activities, setActivities] = useState<LeadActivity[]>([]);
+  const [organizations, setOrganizations] = useState<LeadOrganization[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -47,6 +50,7 @@ export default function LeadDetailPage() {
   const [showEmailComposer, setShowEmailComposer] = useState(false);
 
   useEffect(() => {
+    getActiveLeadOrganizations().then(setOrganizations).catch(console.error);
     if (leadId) {
       fetchLead();
       fetchActivities();
@@ -103,14 +107,17 @@ export default function LeadDetailPage() {
 
     try {
       const vehicleCount = formData.vehicleCount || 0;
+      const selectedOrg = organizations.find(o => o.id === formData.organizationId);
       const updates = {
         ...formData,
+        organizationId: formData.organizationId || null,
+        organizationName: selectedOrg?.name || null,
         tier: calculateTier(formData.leadType as LeadType, vehicleCount),
         updatedAt: Timestamp.now(),
       };
 
       await updateDoc(doc(db, 'salesLeads', leadId), updates);
-      setLead({ ...lead, ...formData, tier: updates.tier, updatedAt: new Date() } as SalesLead);
+      setLead({ ...lead, ...formData, organizationId: formData.organizationId || undefined, organizationName: selectedOrg?.name || undefined, tier: updates.tier, updatedAt: new Date() } as SalesLead);
       setIsEditing(false);
       setSuccess('Lead updated successfully');
     } catch (err: any) {
@@ -406,6 +413,19 @@ export default function LeadDetailPage() {
                 </div>
               )}
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Organization</label>
+                <select
+                  value={formData.organizationId || ''}
+                  onChange={(e) => setFormData({ ...formData, organizationId: e.target.value || undefined })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="">None</option>
+                  {organizations.map((org) => (
+                    <option key={org.id} value={org.id}>{org.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Count</label>
                 <input
                   type="number"
@@ -495,6 +515,12 @@ export default function LeadDetailPage() {
               <div>
                 <dt className="text-sm text-gray-500">Contact Name</dt>
                 <dd className="mt-1 font-medium text-gray-900">{lead.contactName}</dd>
+              </div>
+              <div>
+                <dt className="text-sm text-gray-500">Organization</dt>
+                <dd className="mt-1 font-medium text-gray-900">
+                  {lead.organizationName || <span className="text-gray-400">-</span>}
+                </dd>
               </div>
               <div>
                 <dt className="text-sm text-gray-500">Email</dt>

@@ -169,6 +169,7 @@ interface Props {
   interactionType: InteractionType;
   duration?: number;
   userId: string;
+  userName?: string;
   onComplete?: (outcome: InteractionOutcome, newStage?: PipelineStage) => void;
 }
 
@@ -179,6 +180,7 @@ export default function InteractionOutcomeModal({
   interactionType,
   duration,
   userId,
+  userName,
   onComplete,
 }: Props) {
   const [notes, setNotes] = useState('');
@@ -227,6 +229,16 @@ export default function InteractionOutcomeModal({
         updates.nextFollowUpAt = Timestamp.fromDate(new Date(followUpDate));
       }
 
+      // Append quick note to the lead's notes field
+      if (notes.trim()) {
+        const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const prefix = `[${dateStr} - ${outcomeConfig.label}]`;
+        const existingNotes = lead.notes || '';
+        updates.notes = existingNotes
+          ? `${existingNotes}\n${prefix} ${notes.trim()}`
+          : `${prefix} ${notes.trim()}`;
+      }
+
       // Update the lead
       await updateDoc(doc(db, 'salesLeads', lead.id), updates);
 
@@ -243,6 +255,39 @@ export default function InteractionOutcomeModal({
         createdAt: Timestamp.now(),
         scheduledFor: followUpDate ? Timestamp.fromDate(new Date(followUpDate)) : null,
       });
+
+      // Create personal task + reminder when a follow-up date is scheduled
+      if (followUpDate) {
+        const followUpDateTime = new Date(followUpDate);
+        const leadLabel = lead.companyName || lead.contactName;
+        const displayName = userName || 'Unknown';
+
+        // Create a personal task (shows in Workspace > Tasks)
+        await addDoc(collection(db, 'personalTasks'), {
+          userId: userId,
+          createdByName: displayName,
+          title: `Follow up: ${leadLabel}`,
+          description: `${outcomeConfig.label} - ${interactionType} with ${lead.contactName} at ${leadLabel}.${notes ? ` Notes: ${notes}` : ''}`,
+          priority: 'high',
+          status: 'pending',
+          dueDate: followUpDateTime,
+          category: 'sales-follow-up',
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        });
+
+        // Create a personal reminder (shows in Workspace > Reminders)
+        await addDoc(collection(db, 'personalReminders'), {
+          userId: userId,
+          createdByName: displayName,
+          title: `Follow up: ${leadLabel}`,
+          message: `${outcomeConfig.label} - Follow up ${interactionType} with ${lead.contactName}.${notes ? ` Notes: ${notes}` : ''}`,
+          reminderTime: followUpDateTime,
+          isRecurring: false,
+          isCompleted: false,
+          createdAt: Timestamp.now(),
+        });
+      }
 
       // Call the parent's onComplete callback
       if (onComplete) {
@@ -366,36 +411,37 @@ export default function InteractionOutcomeModal({
           )}
 
           {/* Additional Options */}
-          <div className="border-t border-gray-700 pt-4 mt-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Schedule Follow-up</label>
-                <input
-                  type="datetime-local"
-                  value={followUpDate}
-                  onChange={(e) => setFollowUpDate(e.target.value)}
-                  disabled={saving}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm disabled:opacity-50"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Notes</label>
-                <input
-                  type="text"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Quick note..."
-                  disabled={saving}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm disabled:opacity-50"
-                />
-              </div>
+          <div className="border-t border-gray-700 pt-4 mt-4 space-y-4">
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Notes</label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Add notes about this interaction..."
+                rows={3}
+                disabled={saving}
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm disabled:opacity-50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Schedule Follow-up</label>
+              <input
+                type="datetime-local"
+                value={followUpDate}
+                onChange={(e) => setFollowUpDate(e.target.value)}
+                disabled={saving}
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm disabled:opacity-50"
+              />
             </div>
           </div>
 
           {/* Auto-organization Info */}
-          <div className="mt-4 p-3 bg-gray-700/50 rounded-lg">
+          <div className="mt-4 p-3 bg-gray-700/50 rounded-lg space-y-1">
             <p className="text-xs text-gray-400">
               <span className="text-yellow-400">Auto-organize:</span> Selecting an outcome will automatically move this lead to the appropriate pipeline stage and log the activity.
+            </p>
+            <p className="text-xs text-gray-400">
+              <span className="text-blue-400">Notes</span> are saved to the lead. <span className="text-blue-400">Follow-ups</span> create a task and reminder in your Workspace.
             </p>
           </div>
 

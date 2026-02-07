@@ -8,6 +8,7 @@ import { db } from '@/lib/firebase';
 import {
   SalesLead,
   LeadType,
+  LeadOrganization,
   PipelineStage,
   LeadTier,
   LEAD_TYPE_CONFIG,
@@ -15,6 +16,7 @@ import {
   TIER_CONFIG,
   calculateTier,
 } from '@/lib/sales-types';
+import { getActiveLeadOrganizations } from '@/lib/db';
 
 // Custom settings interface
 interface CustomSettings {
@@ -45,6 +47,7 @@ export default function LeadsPage() {
   const initialTier = searchParams.get('tier') as LeadTier | null;
 
   const [leads, setLeads] = useState<SalesLead[]>([]);
+  const [organizations, setOrganizations] = useState<LeadOrganization[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCustomizeModal, setShowCustomizeModal] = useState(false);
@@ -93,11 +96,13 @@ export default function LeadsPage() {
     state: '',
     zipCode: '',
     notes: '',
+    organizationId: '',
   });
 
   useEffect(() => {
     fetchLeads();
     fetchCustomSettings();
+    getActiveLeadOrganizations().then(setOrganizations).catch(console.error);
   }, []);
 
   async function fetchCustomSettings() {
@@ -220,6 +225,7 @@ export default function LeadsPage() {
       state: '',
       zipCode: '',
       notes: '',
+      organizationId: '',
     });
     setError('');
   };
@@ -256,6 +262,7 @@ export default function LeadsPage() {
 
     try {
       const vehicleCount = parseInt(formData.vehicleCount) || 0;
+      const selectedOrg = organizations.find(o => o.id === formData.organizationId);
       const newLead: Omit<SalesLead, 'id'> = {
         companyName: formData.companyName,
         contactName: formData.contactName,
@@ -263,6 +270,7 @@ export default function LeadsPage() {
         phone: formData.phone,
         leadType: formData.leadType,
         ...(formData.leadType === 'custom' && formData.customLeadType ? { customLeadType: formData.customLeadType } : {}),
+        ...(selectedOrg ? { organizationId: selectedOrg.id, organizationName: selectedOrg.name } : {}),
         tier: calculateTier(formData.leadType, vehicleCount),
         stage: 'new',
         vehicleCount: vehicleCount,
@@ -528,6 +536,7 @@ export default function LeadsPage() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company / Contact</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Organization</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tier</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stage</th>
@@ -548,7 +557,19 @@ export default function LeadsPage() {
                           <p className="font-medium text-gray-900">{lead.companyName}</p>
                           <p className="text-sm text-gray-500">{lead.contactName}</p>
                           <p className="text-sm text-gray-400">{lead.email}</p>
+                          {lead.notes && (
+                            <p className="text-xs text-gray-400 mt-1 truncate max-w-xs" title={lead.notes}>
+                              {lead.notes.length > 60 ? lead.notes.slice(0, 60) + '...' : lead.notes}
+                            </p>
+                          )}
                         </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {lead.organizationName ? (
+                          <span className="text-sm text-blue-600 font-medium">{lead.organizationName}</span>
+                        ) : (
+                          <span className="text-sm text-gray-400">-</span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${typeConfig.bgColor} ${typeConfig.color}`}>
@@ -710,6 +731,22 @@ export default function LeadsPage() {
                       placeholder="e.g., Car Wash, Body Shop, etc."
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
+                  </div>
+                )}
+
+                {organizations.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Organization</label>
+                    <select
+                      value={formData.organizationId}
+                      onChange={(e) => setFormData({ ...formData, organizationId: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="">None</option>
+                      {organizations.map((org) => (
+                        <option key={org.id} value={org.id}>{org.name}</option>
+                      ))}
+                    </select>
                   </div>
                 )}
 
