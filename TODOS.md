@@ -49,7 +49,7 @@
 ## Marketing & SEO
 - [ ] Add customer testimonials/reviews section
 - [ ] Set up Google Business Profile
-- [ ] Add schema markup for local SEO
+- [x] Add schema markup for local SEO
 - [ ] Create blog section for detailing tips (helps SEO)
 
 ---
