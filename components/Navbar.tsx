@@ -8,10 +8,7 @@ export default function Navbar() {
 
   const navLinks = [
     { href: '/', label: 'Home' },
-    { href: '/services', label: 'Services' },
-    { href: '/pricing', label: 'Pricing' },
-    { href: '/gallery', label: 'Gallery' },
-    { href: '/contact', label: 'Contact' },
+    { href: '/projects', label: 'Projects' },
   ];
 
   return (
@@ -20,7 +17,6 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           <Link href="/" className="flex items-center space-x-2">
             <span className="text-emerald-500 text-2xl font-bold">Emerald</span>
-            <span className="text-white text-2xl font-light">Detailing</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -35,22 +31,16 @@ export default function Navbar() {
               </Link>
             ))}
             <Link
-              href="/affiliate"
-              className="text-gray-300 hover:text-emerald-400 transition-colors duration-200"
-            >
-              Affiliates
-            </Link>
-            <Link
               href="/login"
               className="text-gray-300 hover:text-emerald-400 transition-colors duration-200"
             >
               Login
             </Link>
             <Link
-              href="/book"
+              href="/projects"
               className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold transition-colors duration-200"
             >
-              Book Now
+              Explore
             </Link>
           </div>
 
@@ -92,13 +82,6 @@ export default function Navbar() {
               </Link>
             ))}
             <Link
-              href="/affiliate"
-              className="block py-2 text-gray-300 hover:text-emerald-400 transition-colors duration-200"
-              onClick={() => setIsOpen(false)}
-            >
-              Affiliates
-            </Link>
-            <Link
               href="/login"
               className="block py-2 text-gray-300 hover:text-emerald-400 transition-colors duration-200"
               onClick={() => setIsOpen(false)}
@@ -106,11 +89,11 @@ export default function Navbar() {
               Login
             </Link>
             <Link
-              href="/book"
+              href="/projects"
               className="block mt-4 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold text-center transition-colors duration-200"
               onClick={() => setIsOpen(false)}
             >
-              Book Now
+              Explore
             </Link>
           </div>
         )}

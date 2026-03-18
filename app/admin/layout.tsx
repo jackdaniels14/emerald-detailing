@@ -3,9 +3,6 @@
 import AdminSidebar from '@/components/AdminSidebar';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import NotificationDropdown from '@/components/NotificationDropdown';
-import IncomingCallNotification from '@/components/IncomingCallNotification';
-import { ConsoleModeProvider } from '@/lib/console-mode-context';
-import { TwilioProvider } from '@/lib/twilio-context';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -18,10 +15,6 @@ export default function AdminLayout({
 
   return (
     <ProtectedRoute>
-      <ConsoleModeProvider>
-      <TwilioProvider>
-      {/* Global incoming call notification */}
-      <IncomingCallNotification />
       <div className="flex h-screen bg-gray-100">
         {/* Mobile sidebar backdrop */}
         {sidebarOpen && (
@@ -81,18 +74,15 @@ export default function AdminLayout({
 
               {/* Right side actions */}
               <div className="flex items-center space-x-4">
-                {/* Notifications */}
                 <NotificationDropdown />
-
-                {/* Quick add */}
                 <Link
-                  href="/admin/bookings/new"
-                  className="hidden sm:flex items-center px-3 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors text-sm font-medium"
+                  href="/"
+                  className="hidden sm:flex items-center px-3 py-2 text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
                 >
                   <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
-                  New Booking
+                  View Site
                 </Link>
               </div>
             </div>
@@ -104,8 +94,6 @@ export default function AdminLayout({
           </main>
         </div>
       </div>
-      </TwilioProvider>
-      </ConsoleModeProvider>
     </ProtectedRoute>
   );
 }

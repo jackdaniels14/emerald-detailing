@@ -3,30 +3,34 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import Link from 'next/link';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Booking, Client, Employee, TimeEntry } from '@/lib/types';
 
-// Stats card component
+interface Project {
+  id: string;
+  name: string;
+  status: string;
+  liveUrl?: string;
+}
+
+interface Agent {
+  id: string;
+  name: string;
+  status: 'running' | 'stopped' | 'error';
+  lastPing?: any;
+}
+
 function StatCard({
   title,
   value,
-  change,
-  changeType,
   icon,
+  color,
 }: {
   title: string;
   value: string;
-  change?: string;
-  changeType?: 'positive' | 'negative' | 'neutral';
   icon: React.ReactNode;
+  color: string;
 }) {
-  const changeColors = {
-    positive: 'text-green-600 bg-green-100',
-    negative: 'text-red-600 bg-red-100',
-    neutral: 'text-gray-600 bg-gray-100',
-  };
-
   return (
     <div className="bg-white rounded-xl shadow-sm p-6">
       <div className="flex items-center justify-between">
@@ -34,88 +38,20 @@ function StatCard({
           <p className="text-sm font-medium text-gray-500">{title}</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
         </div>
-        <div className="p-3 bg-emerald-100 rounded-lg text-emerald-600">
+        <div className={`p-3 rounded-lg ${color}`}>
           {icon}
         </div>
       </div>
-      {change && changeType && (
-        <div className="mt-4">
-          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${changeColors[changeType]}`}>
-            {changeType === 'positive' && (
-              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-              </svg>
-            )}
-            {changeType === 'negative' && (
-              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-              </svg>
-            )}
-            {change}
-          </span>
-          <span className="text-xs text-gray-500 ml-2">vs last week</span>
-        </div>
-      )}
     </div>
   );
 }
-
-// Quick action button component
-function QuickAction({
-  title,
-  description,
-  href,
-  icon,
-  color,
-}: {
-  title: string;
-  description: string;
-  href: string;
-  icon: React.ReactNode;
-  color: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow"
-    >
-      <div className={`p-3 rounded-lg ${color}`}>{icon}</div>
-      <div className="ml-4">
-        <p className="text-sm font-semibold text-gray-900">{title}</p>
-        <p className="text-xs text-gray-500">{description}</p>
-      </div>
-    </Link>
-  );
-}
-
-const statusStyles: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  confirmed: 'bg-blue-100 text-blue-800',
-  in_progress: 'bg-purple-100 text-purple-800',
-  completed: 'bg-green-100 text-green-800',
-  cancelled: 'bg-red-100 text-red-800',
-};
-
-const statusLabels: Record<string, string> = {
-  pending: 'Pending',
-  confirmed: 'Confirmed',
-  in_progress: 'In Progress',
-  completed: 'Completed',
-  cancelled: 'Cancelled',
-};
 
 export default function AdminDashboard() {
   const { userProfile } = useAuth();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [loading, setLoading] = useState(true);
-
-  // Data states
-  const [todaysBookings, setTodaysBookings] = useState<(Booking & { clientName: string })[]>([]);
-  const [weeklyRevenue, setWeeklyRevenue] = useState(0);
-  const [totalClients, setTotalClients] = useState(0);
-  const [completionRate, setCompletionRate] = useState(0);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [activeTimeEntries, setActiveTimeEntries] = useState<TimeEntry[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -123,115 +59,22 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    async function fetchDashboardData() {
+    async function fetchData() {
       try {
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-
-        // Get start of week (Monday)
-        const dayOfWeek = today.getDay();
-        const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - daysSinceMonday);
-
-        // Fetch all data in parallel
-        const [bookingsSnap, clientsSnap, employeesSnap, timeEntriesSnap] = await Promise.all([
-          getDocs(collection(db, 'bookings')),
-          getDocs(collection(db, 'clients')),
-          getDocs(query(collection(db, 'employees'), orderBy('firstName'))),
-          getDocs(collection(db, 'timeEntries')),
+        const [projectsSnap, agentsSnap] = await Promise.all([
+          getDocs(collection(db, 'projects')),
+          getDocs(collection(db, 'agents')),
         ]);
 
-        // Process clients
-        const clientsMap: Record<string, Client> = {};
-        clientsSnap.docs.forEach(doc => {
-          clientsMap[doc.id] = { id: doc.id, ...doc.data() } as Client;
-        });
-        setTotalClients(clientsSnap.docs.length);
-
-        // Process bookings
-        const allBookings = bookingsSnap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Booking[];
-
-        // Today's bookings
-        const todayBookings = allBookings.filter(booking => {
-          const bookingDate = booking.scheduledDate as any;
-          const date = bookingDate?.seconds
-            ? new Date(bookingDate.seconds * 1000)
-            : new Date(bookingDate);
-          return date >= today && date < tomorrow;
-        }).map(booking => ({
-          ...booking,
-          clientName: clientsMap[booking.clientId]
-            ? `${clientsMap[booking.clientId].firstName} ${clientsMap[booking.clientId].lastName}`
-            : 'Unknown Client'
-        }));
-
-        // Sort by time
-        todayBookings.sort((a, b) => {
-          const timeA = parseInt(a.scheduledTime?.replace(':', '') || '0');
-          const timeB = parseInt(b.scheduledTime?.replace(':', '') || '0');
-          return timeA - timeB;
-        });
-
-        setTodaysBookings(todayBookings);
-
-        // Weekly revenue (completed bookings this week)
-        const weeklyCompletedBookings = allBookings.filter(booking => {
-          if (booking.status !== 'completed') return false;
-          const bookingDate = booking.scheduledDate as any;
-          const date = bookingDate?.seconds
-            ? new Date(bookingDate.seconds * 1000)
-            : new Date(bookingDate);
-          return date >= weekStart && date <= now;
-        });
-
-        const revenue = weeklyCompletedBookings.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
-        setWeeklyRevenue(revenue);
-
-        // Completion rate (this month)
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        const monthBookings = allBookings.filter(booking => {
-          const bookingDate = booking.scheduledDate as any;
-          const date = bookingDate?.seconds
-            ? new Date(bookingDate.seconds * 1000)
-            : new Date(bookingDate);
-          return date >= monthStart && date <= now;
-        });
-
-        const completedCount = monthBookings.filter(b => b.status === 'completed').length;
-        const nonCancelledCount = monthBookings.filter(b => b.status !== 'cancelled').length;
-        const rate = nonCancelledCount > 0 ? Math.round((completedCount / nonCancelledCount) * 100) : 0;
-        setCompletionRate(rate);
-
-        // Process employees
-        const employeesData = employeesSnap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Employee[];
-        setEmployees(employeesData.filter(e => e.isActive));
-
-        // Active time entries (currently clocked in)
-        const timeEntries = timeEntriesSnap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as TimeEntry[];
-
-        const active = timeEntries.filter(entry => !entry.clockOut);
-        setActiveTimeEntries(active);
-
+        setProjects(projectsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Project[]);
+        setAgents(agentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Agent[]);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
         setLoading(false);
       }
     }
-
-    fetchDashboardData();
+    fetchData();
   }, []);
 
   const greeting = () => {
@@ -241,16 +84,9 @@ export default function AdminDashboard() {
     return 'Good evening';
   };
 
-  const formatTime = (time: string) => {
-    const hour = parseInt(time);
-    if (hour > 12) return `${hour - 12}:00 PM`;
-    if (hour === 12) return '12:00 PM';
-    return `${time} AM`;
-  };
-
-  const getEmployeeById = (id: string) => {
-    return employees.find(e => e.id === id);
-  };
+  const liveProjects = projects.filter(p => p.status === 'live').length;
+  const runningAgents = agents.filter(a => a.status === 'running').length;
+  const errorAgents = agents.filter(a => a.status === 'error').length;
 
   if (loading) {
     return (
@@ -269,7 +105,7 @@ export default function AdminDashboard() {
             {greeting()}, {userProfile?.firstName || 'Admin'}
           </h1>
           <p className="text-gray-500 mt-1">
-            Here&apos;s what&apos;s happening with your business today.
+            Here&apos;s the status of your projects and AI agents.
           </p>
         </div>
         <div className="mt-4 sm:mt-0">
@@ -287,38 +123,42 @@ export default function AdminDashboard() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
-          title="Today's Bookings"
-          value={todaysBookings.length.toString()}
+          title="Total Projects"
+          value={projects.length.toString()}
+          color="bg-emerald-100 text-emerald-600"
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
           }
         />
         <StatCard
-          title="Weekly Revenue"
-          value={`$${weeklyRevenue.toLocaleString()}`}
+          title="Live Projects"
+          value={liveProjects.toString()}
+          color="bg-green-100 text-green-600"
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
             </svg>
           }
         />
         <StatCard
-          title="Total Clients"
-          value={totalClients.toString()}
+          title="AI Agents"
+          value={`${runningAgents}/${agents.length}`}
+          color="bg-blue-100 text-blue-600"
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           }
         />
         <StatCard
-          title="Completion Rate"
-          value={`${completionRate}%`}
+          title="Errors"
+          value={errorAgents.toString()}
+          color={errorAgents > 0 ? "bg-red-100 text-red-600" : "bg-gray-100 text-gray-600"}
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           }
         />
@@ -327,224 +167,125 @@ export default function AdminDashboard() {
       {/* Quick Actions */}
       <div>
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <QuickAction
-            title="New Booking"
-            description="Schedule a new service"
-            href="/admin/bookings/new"
-            icon={
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Link href="/admin/projects" className="flex items-center p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
+            <div className="p-3 rounded-lg bg-emerald-500">
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-            }
-            color="bg-emerald-500"
-          />
-          <QuickAction
-            title="Add Client"
-            description="Register new customer"
-            href="/admin/clients/new"
-            icon={
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-semibold text-gray-900">Manage Projects</p>
+              <p className="text-xs text-gray-500">Add, edit, or remove projects</p>
+            </div>
+          </Link>
+          <Link href="/admin/agents" className="flex items-center p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
+            <div className="p-3 rounded-lg bg-blue-500">
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-            }
-            color="bg-blue-500"
-          />
-          <QuickAction
-            title="Clock In/Out"
-            description="Track employee time"
-            href="/admin/timeclock"
-            icon={
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-semibold text-gray-900">AI Agents</p>
+              <p className="text-xs text-gray-500">Configure and control agents</p>
+            </div>
+          </Link>
+          <Link href="/admin/settings" className="flex items-center p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
+            <div className="p-3 rounded-lg bg-gray-500">
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-            }
-            color="bg-purple-500"
-          />
-          <QuickAction
-            title="View Reports"
-            description="Analytics & insights"
-            href="/admin/analytics"
-            icon={
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-            }
-            color="bg-orange-500"
-          />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-semibold text-gray-900">Settings</p>
+              <p className="text-xs text-gray-500">Platform configuration</p>
+            </div>
+          </Link>
         </div>
       </div>
 
-      {/* Today's Bookings */}
-      <div className="bg-white rounded-xl shadow-sm">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Today's Bookings</h2>
-          <Link
-            href="/admin/bookings"
-            className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
-          >
-            View all
-          </Link>
-        </div>
-        {todaysBookings.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Time
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Client
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Service
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {todaysBookings.map((booking) => (
-                  <tr key={booking.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {formatTime(booking.scheduledTime)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{booking.clientName}</div>
-                      <div className="text-xs text-gray-500">{booking.vehicleInfo}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 capitalize">
-                        {booking.serviceType} - {booking.serviceTier}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${statusStyles[booking.status]}`}>
-                        {statusLabels[booking.status]}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                      <Link
-                        href={`/admin/bookings/edit?id=${booking.id}`}
-                        className="text-emerald-600 hover:text-emerald-900 font-medium"
-                      >
-                        View
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="p-8 text-center">
-            <p className="text-gray-500">No bookings scheduled for today</p>
-            <Link
-              href="/admin/bookings/new"
-              className="inline-flex items-center mt-4 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors font-medium text-sm"
-            >
-              Create Booking
+      {/* Projects & Agents Overview */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Projects */}
+        <div className="bg-white rounded-xl shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Projects</h2>
+            <Link href="/admin/projects" className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">
+              View all
             </Link>
           </div>
-        )}
-      </div>
-
-      {/* Bottom Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Employees on duty */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Employees On Duty</h2>
-          {activeTimeEntries.length > 0 ? (
-            <div className="space-y-4">
-              {activeTimeEntries.map((entry) => {
-                const employee = getEmployeeById(entry.employeeId);
-                if (!employee) return null;
-
-                const clockInTime = entry.clockIn as any;
-                const clockInDate = clockInTime?.seconds
-                  ? new Date(clockInTime.seconds * 1000)
-                  : new Date(clockInTime);
-
-                return (
-                  <div key={entry.id} className="flex items-center justify-between py-2">
-                    <div className="flex items-center">
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: employee.scheduleColor || '#10b981' }}
-                      >
-                        <span className="text-sm font-medium text-white">
-                          {employee.firstName?.[0]}{employee.lastName?.[0]}
-                        </span>
-                      </div>
-                      <div className="ml-3">
-                        <p className="text-sm font-medium text-gray-900">
-                          {employee.firstName} {employee.lastName}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Since {clockInDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                      Working
-                    </span>
+          {projects.length > 0 ? (
+            <div className="divide-y divide-gray-100">
+              {projects.slice(0, 5).map(project => (
+                <div key={project.id} className="px-6 py-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{project.name}</p>
+                    {project.liveUrl && (
+                      <a href={project.liveUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-600 hover:underline">
+                        {project.liveUrl}
+                      </a>
+                    )}
                   </div>
-                );
-              })}
+                  <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                    project.status === 'live' ? 'bg-green-100 text-green-800' :
+                    project.status === 'beta' ? 'bg-blue-100 text-blue-800' :
+                    project.status === 'development' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {project.status}
+                  </span>
+                </div>
+              ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">
-              <p>No employees currently clocked in</p>
+            <div className="p-8 text-center">
+              <p className="text-gray-500">No projects yet</p>
+              <Link href="/admin/projects" className="inline-flex items-center mt-4 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors font-medium text-sm">
+                Add Project
+              </Link>
             </div>
           )}
-          <Link
-            href="/admin/timeclock"
-            className="mt-4 block text-center text-sm text-emerald-600 hover:text-emerald-700 font-medium"
-          >
-            Manage Time Clock
-          </Link>
         </div>
 
-        {/* Upcoming tasks */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Upcoming Today</h2>
-          {todaysBookings.filter(b => b.status !== 'completed' && b.status !== 'cancelled').length > 0 ? (
-            <div className="space-y-4">
-              {todaysBookings
-                .filter(b => b.status !== 'completed' && b.status !== 'cancelled')
-                .slice(0, 5)
-                .map((booking) => (
-                  <div key={booking.id} className="flex items-start">
-                    <div className="flex-shrink-0 w-20 text-sm font-medium text-gray-500">
-                      {formatTime(booking.scheduledTime)}
-                    </div>
-                    <div className="ml-4 flex-1 border-l-2 border-emerald-200 pl-4">
-                      <p className="text-sm font-medium text-gray-900">
-                        {booking.serviceType} for {booking.clientName}
-                      </p>
-                      <p className="text-xs text-gray-500">{booking.vehicleInfo}</p>
-                    </div>
+        {/* AI Agents */}
+        <div className="bg-white rounded-xl shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">AI Agents</h2>
+            <Link href="/admin/agents" className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">
+              View all
+            </Link>
+          </div>
+          {agents.length > 0 ? (
+            <div className="divide-y divide-gray-100">
+              {agents.slice(0, 5).map(agent => (
+                <div key={agent.id} className="px-6 py-4 flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className={`w-2 h-2 rounded-full mr-3 ${
+                      agent.status === 'running' ? 'bg-green-500' :
+                      agent.status === 'error' ? 'bg-red-500' :
+                      'bg-gray-400'
+                    }`}></div>
+                    <p className="text-sm font-medium text-gray-900">{agent.name}</p>
                   </div>
-                ))}
+                  <span className={`text-xs font-medium px-2 py-1 rounded-full capitalize ${
+                    agent.status === 'running' ? 'bg-green-100 text-green-800' :
+                    agent.status === 'error' ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {agent.status}
+                  </span>
+                </div>
+              ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">
-              <p>No upcoming jobs today</p>
+            <div className="p-8 text-center">
+              <p className="text-gray-500">No AI agents configured</p>
+              <Link href="/admin/agents" className="inline-flex items-center mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium text-sm">
+                Add Agent
+              </Link>
             </div>
           )}
-          <Link
-            href="/admin/schedule"
-            className="mt-4 block text-center text-sm text-emerald-600 hover:text-emerald-700 font-medium"
-          >
-            View Full Schedule
-          </Link>
         </div>
       </div>
     </div>

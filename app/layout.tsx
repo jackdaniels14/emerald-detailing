@@ -3,34 +3,30 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/Providers';
 import GoogleAnalytics from '@/components/GoogleAnalytics';
-import FacebookPixel from '@/components/FacebookPixel';
-import LocalBusinessSchema from '@/components/LocalBusinessSchema';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Emerald Detailing | Professional Mobile Car Detailing',
-  description: 'Professional mobile car detailing services in the Greater Seattle area. We come to you! Interior, exterior, and full detail packages available.',
-  keywords: ['car detailing', 'mobile detailing', 'Seattle', 'auto detailing', 'car wash', 'interior detailing', 'exterior detailing'],
-  authors: [{ name: 'Emerald Detailing' }],
+  title: 'Emerald | Software & AI Platform',
+  description: 'Manage your AI agents, monitor software projects, and showcase your tools. Built for developers and creators.',
+  keywords: ['AI agents', 'software projects', 'developer tools', 'AI management', 'project monitoring'],
+  authors: [{ name: 'Emerald' }],
   openGraph: {
-    title: 'Emerald Detailing | Professional Mobile Car Detailing',
-    description: 'Professional mobile car detailing services in the Greater Seattle area. We come to you!',
-    url: 'https://emeralddetailers.com',
-    siteName: 'Emerald Detailing',
+    title: 'Emerald | Software & AI Platform',
+    description: 'Manage your AI agents, monitor software projects, and showcase your tools.',
+    siteName: 'Emerald',
     locale: 'en_US',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Emerald Detailing | Professional Mobile Car Detailing',
-    description: 'Professional mobile car detailing services in the Greater Seattle area. We come to you!',
+    title: 'Emerald | Software & AI Platform',
+    description: 'Manage your AI agents, monitor software projects, and showcase your tools.',
   },
   robots: {
     index: true,
     follow: true,
   },
-  metadataBase: new URL('https://emeralddetailers.com'),
 };
 
 export default function RootLayout({
@@ -47,8 +43,6 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <GoogleAnalytics />
-        <FacebookPixel />
-        <LocalBusinessSchema />
         <Providers>
           {children}
         </Providers>

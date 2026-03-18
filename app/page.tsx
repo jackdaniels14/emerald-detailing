@@ -7,46 +7,45 @@ export default function Home() {
     {
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
         </svg>
       ),
-      title: 'We Come to You',
-      description: 'No need to travel. We bring our professional equipment directly to your home or office.',
+      title: 'Project Dashboard',
+      description: 'Track all your software projects in one place. See statuses, deployments, and links at a glance.',
     },
     {
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
       ),
-      title: 'Premium Products',
-      description: 'We use only professional-grade products that protect and enhance your vehicle.',
+      title: 'AI Agent Controls',
+      description: 'Configure, start, stop, and monitor your AI agents from a central control panel.',
     },
     {
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
       ),
-      title: 'Flexible Scheduling',
-      description: 'Book at your convenience. We work around your schedule to minimize disruption.',
+      title: 'Status Monitoring',
+      description: 'Real-time health checks and uptime monitoring for all your services and deployments.',
     },
     {
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
         </svg>
       ),
-      title: 'Attention to Detail',
-      description: 'Every inch of your vehicle receives meticulous care and attention.',
+      title: 'Free & Paid Access',
+      description: 'Share your tools publicly or gate access behind subscriptions. You control the pricing.',
     },
   ];
 
-  const services = [
-    { name: 'Interior Detailing', description: 'Deep clean of all interior surfaces, carpets, and upholstery.' },
-    { name: 'Exterior Detailing', description: 'Hand wash, clay bar, polish, and protective wax application.' },
-    { name: 'Full Detail', description: 'Complete interior and exterior service for the ultimate clean.' },
+  const showcaseProjects = [
+    { name: 'AI Chat Agent', description: 'Conversational AI assistant with custom personality and knowledge base.', status: 'Live' },
+    { name: 'Code Review Bot', description: 'Automated code review and suggestions powered by LLMs.', status: 'Beta' },
+    { name: 'Data Pipeline', description: 'ETL pipeline for processing and transforming structured data.', status: 'In Development' },
   ];
 
   return (
@@ -58,10 +57,10 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Why Choose <span className="text-emerald-500">Emerald Detailing</span>?
+              Everything in <span className="text-emerald-500">One Place</span>
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              We&apos;re committed to delivering exceptional results with unmatched convenience.
+              Manage your AI agents and software projects from a single dashboard.
             </p>
           </div>
 
@@ -80,99 +79,56 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Services Preview */}
+      {/* Projects Preview */}
       <section className="py-16 md:py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Our Services</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Featured Projects</h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Professional detailing services tailored to your needs.
+              Software and AI tools available for use.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {services.map((service, index) => (
-              <div
-                key={index}
-                className="border-2 border-gray-200 rounded-xl p-6 hover:border-emerald-500 transition-colors duration-300"
-              >
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">{service.name}</h3>
-                <p className="text-gray-600 mb-4">{service.description}</p>
-                <Link
-                  href="/services"
-                  className="text-emerald-500 hover:text-emerald-600 font-semibold inline-flex items-center"
+            {showcaseProjects.map((project, index) => {
+              const statusColors: Record<string, string> = {
+                'Live': 'bg-green-100 text-green-800',
+                'Beta': 'bg-blue-100 text-blue-800',
+                'In Development': 'bg-yellow-100 text-yellow-800',
+              };
+              return (
+                <div
+                  key={index}
+                  className="border-2 border-gray-200 rounded-xl p-6 hover:border-emerald-500 transition-colors duration-300"
                 >
-                  Learn More
-                  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
-              </div>
-            ))}
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xl font-semibold text-gray-900">{project.name}</h3>
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${statusColors[project.status]}`}>
+                      {project.status}
+                    </span>
+                  </div>
+                  <p className="text-gray-600 mb-4">{project.description}</p>
+                  <Link
+                    href="/projects"
+                    className="text-emerald-500 hover:text-emerald-600 font-semibold inline-flex items-center"
+                  >
+                    Learn More
+                    <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                </div>
+              );
+            })}
           </div>
 
           <div className="text-center mt-12">
             <Link
-              href="/pricing"
+              href="/projects"
               className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-colors duration-200 inline-block"
             >
-              View All Pricing
+              View All Projects
             </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials Section */}
-      <section className="py-16 md:py-24 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              What Our Customers Say
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Don&apos;t just take our word for it - hear from our satisfied customers.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              {
-                name: 'Michael R.',
-                rating: 5,
-                text: 'Absolutely amazing service! They came to my office and my car looked brand new when they finished. Highly recommend!',
-                vehicle: '2022 BMW X5'
-              },
-              {
-                name: 'Sarah T.',
-                rating: 5,
-                text: 'The attention to detail is incredible. Every nook and cranny was spotless. Will definitely be a repeat customer.',
-                vehicle: '2021 Tesla Model 3'
-              },
-              {
-                name: 'David K.',
-                rating: 5,
-                text: 'Best detailing service I\'ve ever used. Professional, on-time, and the results speak for themselves. 5 stars!',
-                vehicle: '2023 Ford F-150'
-              }
-            ].map((testimonial, index) => (
-              <div
-                key={index}
-                className="bg-white rounded-xl p-6 shadow-lg"
-              >
-                <div className="flex items-center mb-4">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <svg key={i} className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
-                <p className="text-gray-600 mb-4 italic">&ldquo;{testimonial.text}&rdquo;</p>
-                <div className="border-t pt-4">
-                  <p className="font-semibold text-gray-900">{testimonial.name}</p>
-                  <p className="text-sm text-gray-500">{testimonial.vehicle}</p>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </section>
@@ -181,17 +137,25 @@ export default function Home() {
       <section className="py-16 md:py-24 bg-emerald-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Ready for a Showroom Shine?
+            Ready to Get Started?
           </h2>
           <p className="text-xl text-emerald-100 mb-8 max-w-2xl mx-auto">
-            Book your mobile detailing appointment today and experience the Emerald difference.
+            Log in to manage your AI agents and projects, or explore what&apos;s available.
           </p>
-          <Link
-            href="/book"
-            className="bg-white text-emerald-600 hover:bg-gray-100 px-8 py-4 rounded-lg font-semibold text-lg transition-colors duration-200 inline-block"
-          >
-            Book Now
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              href="/login"
+              className="bg-white text-emerald-600 hover:bg-gray-100 px-8 py-4 rounded-lg font-semibold text-lg transition-colors duration-200 inline-block"
+            >
+              Go to Dashboard
+            </Link>
+            <Link
+              href="/projects"
+              className="border-2 border-white text-white hover:bg-white hover:text-emerald-600 px-8 py-4 rounded-lg font-semibold text-lg transition-colors duration-200 inline-block"
+            >
+              Browse Projects
+            </Link>
+          </div>
         </div>
       </section>
     </PublicLayout>
