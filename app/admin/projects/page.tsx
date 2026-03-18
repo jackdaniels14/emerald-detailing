@@ -16,14 +16,24 @@ interface Project {
   createdAt: any;
 }
 
-const emptyProject = {
+interface ProjectForm {
+  name: string;
+  description: string;
+  status: 'live' | 'beta' | 'development' | 'archived';
+  category: 'ai-agent' | 'web-app' | 'api' | 'tool' | 'other';
+  repoUrl: string;
+  liveUrl: string;
+  pricing: 'free' | 'paid' | 'freemium';
+}
+
+const emptyProject: ProjectForm = {
   name: '',
   description: '',
-  status: 'development' as const,
-  category: 'web-app' as const,
+  status: 'development',
+  category: 'web-app',
   repoUrl: '',
   liveUrl: '',
-  pricing: 'free' as const,
+  pricing: 'free',
 };
 
 export default function AdminProjectsPage() {

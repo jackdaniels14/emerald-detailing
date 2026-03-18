@@ -17,11 +17,21 @@ interface Agent {
   createdAt: any;
 }
 
-const emptyAgent = {
+interface AgentForm {
+  name: string;
+  description: string;
+  status: 'running' | 'stopped' | 'error';
+  type: 'chatbot' | 'automation' | 'monitor' | 'pipeline' | 'other';
+  endpoint: string;
+  apiKey: string;
+  config: string;
+}
+
+const emptyAgent: AgentForm = {
   name: '',
   description: '',
-  status: 'stopped' as const,
-  type: 'chatbot' as const,
+  status: 'stopped',
+  type: 'chatbot',
   endpoint: '',
   apiKey: '',
   config: '{}',
